@@ -1,8 +1,8 @@
 {
     "dirs": [
-        "C:/Users/bmao002/Desktop/New"
+        ""
     ],
-    "outputDir": "C:/Users/bmao002/Desktop/Projects/lvod/resources",
+    "outputDir": "",
     "cmd": {
         "ffmpeg": "ffmpeg",
         "mp4box": "MP4Box"
@@ -11,7 +11,7 @@
         ".mkv",
         ".mp4"
     ],
-    "ffmpegtrans": "-y -i ${input} -map 0:0 -c:v libx264 -preset ultrafast -x264opts keyint=150:min-keyint=150:no-scenecut -b:v 400k ${videoOutput} -map 0:1 -c:a aac -strict -2 -b:a 128k ${audioOutput}",
+    "ffmpegtrans": "-y -i ${input} -vf scale=640:trunc(640/a) -map 0:0 -c:v libx264 -crf 23 -preset ultrafast -x264opts keyint=150:min-keyint=150:no-scenecut ${videoOutput} -maxrate 1M -bufsize 2M -map 0:1 -c:a aac -strict -2 -b:a 128k ${audioOutput}",
     "mp4boxpkg4v": "-dash 10000 -frag 10000 -rap -segment-name v_ 1v.mp4#video",
     "mp4boxpkg4a": "-dash 10000 -frag 10000 -rap -segment-name a_ 1a.mp4#audio"
 }

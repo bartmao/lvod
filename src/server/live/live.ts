@@ -94,7 +94,7 @@ export default class Live extends events.EventEmitter {
         opts[opts.indexOf('${outputPattern}')] = this._workingPath + path.sep + 's_%05d.ts';
         console.log(`FFMPEG ${opts.join(' ')}`);
 
-        this._ffmpeg_ps = cp.spawn(this._ffmpeg, opts);
+        this._ffmpeg_ps = cp.spawn(this._ffmpeg, opts, {stdio:'inherit'});
         this._ffmpeg_ps.on('exit', () => {
             let liveIdx = Live._lives.findIndex(l => l.liveId == this.liveId);
             if (liveIdx > -1) {

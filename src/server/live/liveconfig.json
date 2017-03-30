@@ -1,0 +1,11 @@
+{
+    "outputDir": "C:/Users/bmao002/Desktop/Projects/lvod/resources",
+    "rootDirs":["C:/Users/bmao002/Desktop/Projects/lvod/resources"],
+    "cmd": {
+        "ffmpeg": "ffmpeg",
+        "mp4box": "MP4Box"
+    },
+    "ffmpegtrans": "-re -i ${input} -c:v libx264 -preset ultrafast -x264opts keyint=15:min-keyint=15:no-scenecut -r 15 -b:v 200k -c:a aac -f segment -segment_time 1 -segment_format mpegts ${outputPattern}",
+    "mp4boxadd": "-add ${in} ${out}",
+    "mp4boxpkg": "-dash-ctx ${dashCtx} -dash 1000 -ast-offset -no-frags-default -bs-switching no -min-buffer 40000 -url-template -time-shift 20 -segment-name ${prefix} -out ${dashFile} -dynamic -mpd-refresh 100000 ${input}"
+}   

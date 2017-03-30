@@ -1,0 +1,66 @@
+<html>
+
+<head>
+    <title>LVOD Console</title>
+    <meta http-equiv="content-type" content="text/html;charset=UTF-8" />
+    <script src="http://cdn.dashjs.org/latest/dash.all.debug.js"></script>
+    <!--<script src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-2.0.0.min.js"></script>
+    <script src="https://unpkg.com/vue/dist/vue.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" crossorigin="anonymous"></script>-->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" crossorigin="anonymous">
+    <!--<link rel="stylesheet" href="css/bootstrap.min.css">-->
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+
+<body>
+    <div class="main container-fluid">
+        <div class="page-header">
+            <div>
+                <h1>LVOD Console</h1>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="live col-sm-12">
+                <div class="livings list-group">
+                    <div class="list-group-item active">Living<span v-if="livings.length==0"> (No Living)</span></div>
+                    <a v-for="living in livings" class="live-item list-group-item" v-on:click="play(living.sourceId)">
+                        <div class="live-file list-group-item-heading" data-toggle="collapse">{{living.sourceName}}</div>
+                        <div class="expand glyphicon glyphicon-chevron-right"></div>
+                    </a>
+                </div>
+            </div>
+            <div class="avail col-sm-12">
+                <div class="vods list-group">
+                    <div class="list-group-item active">Availables</div>
+                    <a v-for="vod in vods" class="live-item list-group-item">
+                        <div class="live-file list-group-item-heading" data-toggle="collapse" v-bind:data-target="'#vod-'+vod.id">{{vod.name}}</div>
+                        <div class="expand glyphicon glyphicon-chevron-down"></div>
+                        <div v-bind:id="'vod-'+vod.id" v-bind:file-id="vod.id" class="live-detail list-group-item-text collapse">
+                            <div class="btn-group" role="group" aria-label="...">
+                                <button type="button" v-if="vod.transcoded==0" v-on:click="startVOD(vod.id)" class="btn-svod btn btn-default">Transcode</button>
+                                <button type="button" v-if="vod.transcoded==1" class="btn-svod btn btn-default" disabled>Transcoding</button>
+                                <button type="button" v-if="vod.transcoded==2" v-on:click="play(vod.id)" class="btn-svod btn btn-default">Play</button>
+                                <button type="button" v-if="vod.living==0" v-on:click="startLive(vod.id)" class="btn-slive btn btn-default">Start Live</button>
+                                <button type="button" v-if="vod.living==1" v-on:click="stopLive(vod.id)" class="btn-elive btn btn-default">Stop Live</button>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="lvod-media">
+                <div class="lvod-media-left col-md-12 col-xs-12">
+                    <video id="video-sample" data-dashjs-player controls="true" width="90%"></video>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="js/jquery-2.0.0.min.js"></script>
+    <script src="js/vue.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="jst/dashboard.js"></script>
+</body>
+</body>
+
+</html>

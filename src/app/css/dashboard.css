@@ -1,0 +1,17 @@
+.expand{
+    position: absolute;
+    font-size: 16px;
+    top: 14px;
+    right: 10px;
+}
+
+.list-group-item-text{
+    border-top: 1px;
+}
+.lvod-media-object{
+    width:90%;
+}
+
+.live-file{
+    font-weight: bold;
+}

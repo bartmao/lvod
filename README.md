@@ -1,5 +1,5 @@
 # lvod
-A Living/VOD system using FFMPEG+MP4Box, generate [DASH](http://dashif.org/) content supported by most PC/mobility devices. 
+A Live/VOD system using FFMPEG+MP4Box, generate [DASH](http://dashif.org/) content supported by most PC/mobility devices. 
 
 ## Prerequisite
 Nodejs + [FFMPEG](http://ffmpeg.org/download.html) + [MP4Box](https://gpac.wp.imt.fr/mp4box/)

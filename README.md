@@ -15,3 +15,10 @@ Nodejs + [FFMPEG](http://ffmpeg.org/download.html) + [MP4Box](https://gpac.wp.im
 4. Run/Debug http server
 5. Open dashboard page (localhost:8000/)
 
+## Demo
+1. On PC
+![PC snapshot](https://cloud.githubusercontent.com/assets/4489728/24489284/0870cd12-154f-11e7-916c-49696f7cc5dc.png)
+
+2. On Mobile
+![mobile snapshot](https://cloud.githubusercontent.com/assets/4489728/24489285/089ccf7a-154f-11e7-80ab-bacdaffb83fa.png)
+

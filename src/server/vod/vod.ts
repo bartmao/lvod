@@ -4,6 +4,7 @@ import cp = require('child_process');
 import fs = require('fs');
 import events = require('events');
 
+import ServiceUtils from '../serverutils';
 import ResourceManager from '../resourcemanager';
 const vodConfig = require('./vodconfig.json')
 
@@ -29,7 +30,7 @@ export default class VOD {
 
     constructor() {
         this.vodId = nodeuuid.v4();
-        this._workingPath = path.join(vodConfig.outputDir, this.vodId);
+        this._workingPath = path.join(ServiceUtils.getAbsolutePath(vodConfig.outputDir), this.vodId);
     }
 
     static startVOD(source) {

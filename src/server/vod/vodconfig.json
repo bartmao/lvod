@@ -1,8 +1,8 @@
 {
     "dirs": [
-        ""
+        "resources"
     ],
-    "outputDir": "",
+    "outputDir": "resources",
     "cmd": {
         "ffmpeg": "ffmpeg",
         "mp4box": "MP4Box"

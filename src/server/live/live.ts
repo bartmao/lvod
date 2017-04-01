@@ -4,6 +4,7 @@ import cp = require('child_process');
 import fs = require('fs');
 import events = require('events');
 
+import ServiceUtils from '../serverutils';
 import ResourceManager from '../resourcemanager';
 const liveConfig = require('./liveconfig.json')
 
@@ -22,7 +23,6 @@ export default class Live extends events.EventEmitter {
 
     liveId: string;
     sourceType: string;
-    sourceTrack:string; // video,audio,mul
     source: string;
     sourceId: number;
     sourceName: string;
@@ -67,8 +67,7 @@ export default class Live extends events.EventEmitter {
             let liveIdx = Live._lives.findIndex(l => l.liveId == liveId);
             if (liveIdx > -1) {
                 let live = Live._lives[liveIdx];
-                if (live._ffmpeg_ps)
-                    live._ffmpeg_ps.kill();
+                live._ffmpeg_ps.kill();
                 Live._lives.splice(liveIdx, 1);
                 live.emit('stop', live.liveId);
                 resolve();
@@ -96,7 +95,7 @@ export default class Live extends events.EventEmitter {
         opts[opts.indexOf('${outputPattern}')] = this._workingPath + path.sep + 's_%05d.ts';
         console.log(`FFMPEG ${opts.join(' ')}`);
 
-        this._ffmpeg_ps = cp.spawn(this._ffmpeg, opts, { stdio: 'inherit' });
+        this._ffmpeg_ps = cp.spawn(this._ffmpeg, opts, {stdio:'inherit'});
         this._ffmpeg_ps.on('exit', () => {
             let liveIdx = Live._lives.findIndex(l => l.liveId == this.liveId);
             if (liveIdx > -1) {
@@ -178,13 +177,13 @@ export default class Live extends events.EventEmitter {
                 if (!fs.existsSync(path.join(ins._workingPath, 'live_v.mpd'))) return;
                 if (!fs.existsSync(path.join(ins._workingPath, 'live_a.mpd'))) return;
 
-                var mpdv = fs.readFileSync(path.join(ins._workingPath, 'live_v.mpd'), { encoding: 'utf8' });
+                let mpdv = fs.readFileSync(path.join(ins._workingPath, 'live_v.mpd'), { encoding: 'utf8' });
                 mpdv = mpdv.replace(/availabilityStartTime=\".+?\"/
                     , 'availabilityStartTime="' + ins.liveTime.toISOString() + '"');
-                var mpda = fs.readFileSync(path.join(ins._workingPath, 'live_a.mpd'), { encoding: 'utf8' });
-                var insertPt = mpdv.lastIndexOf('</AdaptationSet>') + 16;
-                var audioStart = mpda.indexOf('<AdaptationSet');
-                var audioEnd = mpda.lastIndexOf('</AdaptationSet>') + 16;
+                let mpda = fs.readFileSync(path.join(ins._workingPath, 'live_a.mpd'), { encoding: 'utf8' });
+                let insertPt = mpdv.lastIndexOf('</AdaptationSet>') + 16;
+                let audioStart = mpda.indexOf('<AdaptationSet');
+                let audioEnd = mpda.lastIndexOf('</AdaptationSet>') + 16;
 
                 let ws = fs.createWriteStream(path.join(ins._workingPath, 'live_fix.mpd'), { encoding: 'utf8' });
                 ws.end(mpdv.substring(0, insertPt)

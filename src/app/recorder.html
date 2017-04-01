@@ -1,23 +1,28 @@
 <html>
 
 <head>
-    <script src="http://antimatter15.com/whammy/whammy.js"></script>
-       <script src="js/jquery-2.0.0.min.js"></script>
- <script src="jst/h5recorder.js"></script>
-
+    <script src="js/jquery-2.0.0.min.js"></script>
+    <script src="js/socket.io.min.js"></script>
+    <script src="jst/h5recorder.js"></script>
 </head>
 
 <body>
-    <button id='encode' onclick="start()">encode</button><br/>    
-    <video id='v0' autoplay width="200" height="200"></video>
-    <canvas visible width="200" height="200"></canvas>
     <script>
+        var r;
+
+
         function start() {
             var v = document.getElementById('v0');
             var c = document.getElementsByTagName('canvas')[0];
-            new H5Recorder(v, c).start();
+            r = new H5Recorder(v, c);
+            r.start();
         }
     </script>
+    <button id='encode' onclick="start()">encode</button><br/>
+    <button id='save' onclick="r.save()">save</button><br/>
+    <video id='v0' autoplay width="200" height="200"></video>
+    <canvas visible width="200" height="200"></canvas>
+
 </body>
 
 </html>

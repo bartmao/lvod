@@ -1,8 +1,8 @@
 {
     "dirs": [
-        "C:/Users/bmao002/Desktop/Projects/lvod/resources"
+        "C:/Users/Bart/Desktop/Projects/lvod/resources"
     ],
-    "outputDir": "",
+    "outputDir": "C:/Users/Bart/Desktop/Projects/lvod/resources",
     "cmd": {
         "ffmpeg": "ffmpeg",
         "mp4box": "MP4Box"

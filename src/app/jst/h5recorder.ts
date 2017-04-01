@@ -1,12 +1,15 @@
 /// <reference path="../../../node_modules/@types/jquery/index.d.ts" />
-declare var Whammy;
 let myNavigator: any = navigator;
 let myWindow: any = window;
+let io: any;
 
 class H5Recorder {
+    private _socket;
     private _videoStream: MediaStream;
     private _isRunning = false;
-    private _encoder;
+    private _fps = 15;
+    private _sec = 0;
+    private _seq = 0;
 
     constructor(private _video, private _canvas) {
         this.init();
@@ -24,44 +27,47 @@ class H5Recorder {
         }, err => {
             console.log(err);
         });
+
+        ins._socket = io('http://localhost');
+        ins._socket.on('news', function (data) {
+            console.log(data);
+            ins._socket.emit('my', { my: 'data' });
+        });
     }
 
     start() {
-        this._encoder = new Whammy.Video(25);
         this._isRunning = true;
         this.draw();
-        setTimeout(this.compile.bind(this));
+        //setTimeout(this.compile.bind(this));
     }
 
     stop() {
         this._isRunning = false;
-        this._encoder = null;
     }
 
     draw() {
         if (!this._isRunning) return;
 
         let ins = this;
-
         var ctx = this._canvas.getContext('2d');
         ctx.drawImage(this._video, 0, 0, this._canvas.width, this._canvas.height);
-        this._encoder.add(ctx);
+
+        this._upload(this._seq++ + '.webp');
 
         requestAnimationFrame(this.draw.bind(this));
     }
 
-    compile() {
-        var output = this._encoder.compile();
-        this._upload(output);
-
-        this._encoder = new Whammy.Video(25);
-        setTimeout(this.compile.bind(this), 5000);
+    save() {
+        let ctx = this._canvas.getContext('2d');
+        this._upload('sample' + '.webp');
     }
 
-    private _upload(output) {
-        //test purpose
-        var url = (myWindow.webkitURL || myWindow.URL).createObjectURL(output);
-        $("<video id='v0' autoplay width='200' height='200' src='" + url + "' loop='true'></video>").appendTo($('body'));
-        console.log(url);
+    private _upload(name) {
+        let img = this._canvas.toDataURL('image/webp');
+        console.log(img.substr(0, 100));
+        this._socket.emit('image', {
+            name: name,
+            data: img.substr(23)
+        });
     }
 }

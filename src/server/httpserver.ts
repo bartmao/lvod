@@ -1,10 +1,13 @@
 import express = require('express');
+import fs = require('fs');
 import bodyParser = require('body-parser');
-
 import LiveService from './live/liveservice';
 import VODService from './vod/vodservice';
 
 let app = express();
+let server = require('http').Server(app);
+let io = require('socket.io')(server);
+
 let liveService = new LiveService();
 let vodService = new VODService();
 
@@ -38,5 +41,15 @@ app.all('/vod/:op', (req, resp) => {
     });
 });
 
-app.listen(8000);
+server.listen(80);
+
+io.on('connection', socket=>{
+  socket.emit('news', { hello: 'world' });
+  socket.on('image', function (data) {
+      let name = data.name;
+      let ws = fs.createWriteStream(__dirname + '/../../resources/' + name);
+      ws.end(new Buffer(data.data, 'base64'));
+  });
+});
+
 console.log('application server started!');

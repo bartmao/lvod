@@ -15,7 +15,8 @@
   "dependencies": {
     "body-parser": "^1.17.1",
     "express": "^4.15.2",
-    "node-uuid": "^1.4.7"
+    "node-uuid": "^1.4.7",
+    "socket.io": "^1.7.3"
   },
   "devDependencies": {
     "@types/express": "^4.0.35",

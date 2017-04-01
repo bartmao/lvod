@@ -1,5 +1,5 @@
 {
-    "outputDir": "",
+    "outputDir": "C:/Users/Bart/Desktop/Projects/lvod/resources",
     "cmd": {
         "ffmpeg": "ffmpeg",
         "mp4box": "MP4Box"

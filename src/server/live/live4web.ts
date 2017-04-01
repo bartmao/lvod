@@ -7,8 +7,8 @@ import events = require('events');
 import ResourceManager from '../resourcemanager';
 const liveConfig = require('./liveconfig.json')
 
-export default class Live extends events.EventEmitter {
-    static _lives: Array<Live> = [];
+export default class Live4Web extends events.EventEmitter {
+    static _lives: Array<Live4Web> = [];
 
     private _workingPath: string = null;
     private _ffmpeg_ps: cp.ChildProcess;
@@ -45,7 +45,7 @@ export default class Live extends events.EventEmitter {
 
     static startLive(req: LiveRequest) {
         return new Promise<any>((resolve, reject) => {
-            let live = new Live();
+            let live = new Live4Web();
             live.source = req.source;
             live.sourceType = req.type;
             let sourceInfo = ResourceManager.locateFile(req.source);
@@ -54,7 +54,7 @@ export default class Live extends events.EventEmitter {
             live.sourceName = sourceInfo.name;
             live.initTime = req.reqTime;
 
-            Live._lives.push(live);
+            Live4Web._lives.push(live);
             fs.mkdirSync(live._workingPath);
             live._transcode(() => {
                 resolve(live.getLiveStatus());
@@ -64,12 +64,12 @@ export default class Live extends events.EventEmitter {
 
     static stopLive(liveId: string) {
         return new Promise<any>(resolve => {
-            let liveIdx = Live._lives.findIndex(l => l.liveId == liveId);
+            let liveIdx = Live4Web._lives.findIndex(l => l.liveId == liveId);
             if (liveIdx > -1) {
-                let live = Live._lives[liveIdx];
+                let live = Live4Web._lives[liveIdx];
                 if (live._ffmpeg_ps)
                     live._ffmpeg_ps.kill();
-                Live._lives.splice(liveIdx, 1);
+                Live4Web._lives.splice(liveIdx, 1);
                 live.emit('stop', live.liveId);
                 resolve();
             }
@@ -77,7 +77,7 @@ export default class Live extends events.EventEmitter {
     }
 
     static getLivings() {
-        return new Promise<Array<Live>>(resolve => {
+        return new Promise<Array<Live4Web>>(resolve => {
             resolve(this._lives);
         });
     }
@@ -98,10 +98,10 @@ export default class Live extends events.EventEmitter {
 
         this._ffmpeg_ps = cp.spawn(this._ffmpeg, opts, { stdio: 'inherit' });
         this._ffmpeg_ps.on('exit', () => {
-            let liveIdx = Live._lives.findIndex(l => l.liveId == this.liveId);
+            let liveIdx = Live4Web._lives.findIndex(l => l.liveId == this.liveId);
             if (liveIdx > -1) {
-                let live = Live._lives[liveIdx];
-                Live._lives.splice(liveIdx, 1);
+                let live = Live4Web._lives[liveIdx];
+                Live4Web._lives.splice(liveIdx, 1);
                 live.emit('stop', live.liveId);
             }
         });

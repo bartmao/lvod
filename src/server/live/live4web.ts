@@ -22,7 +22,7 @@ export default class Live4Web extends events.EventEmitter {
 
     liveId: string;
     sourceType: string;
-    sourceTrack:string; // video,audio,mul
+    sourceTrack: string; // video,audio,mul
     source: string;
     sourceId: number;
     sourceName: string;
@@ -48,17 +48,16 @@ export default class Live4Web extends events.EventEmitter {
             let live = new Live4Web();
             live.source = req.source;
             live.sourceType = req.type;
-            let sourceInfo = ResourceManager.locateFile(req.source);
-            live.sourceId = sourceInfo.id;
-            live.sourcePath = sourceInfo.path;
-            live.sourceName = sourceInfo.name;
+            live.sourceId = 0;
+            live.sourcePath = null;
+            live.sourceName = null;
             live.initTime = req.reqTime;
 
             Live4Web._lives.push(live);
             fs.mkdirSync(live._workingPath);
-            live._transcode(() => {
-                resolve(live.getLiveStatus());
-            });
+            // live._transcode(() => {
+            //     resolve(live.getLiveStatus());
+            // });
         });
     }
 
@@ -89,86 +88,33 @@ export default class Live4Web extends events.EventEmitter {
         };
     }
 
-    private _transcode(cb: Function) {
+    signalFramesReady(group: number) {
+        this._transcode(group);
+    }
+
+    private _transcode(group: number) {
         let ins = this;
         let opts = this._ffmpeg_trans.split(' ')
-        opts[opts.indexOf('${input}')] = this.sourcePath;
-        opts[opts.indexOf('${outputPattern}')] = this._workingPath + path.sep + 's_%05d.ts';
+        opts[opts.indexOf('${input}')] = group + '_%d.webp';
+        opts[opts.indexOf('${outputPattern}')] = group + '.mp4';
         console.log(`FFMPEG ${opts.join(' ')}`);
 
-        this._ffmpeg_ps = cp.spawn(this._ffmpeg, opts, { stdio: 'inherit' });
+        this._ffmpeg_ps = cp.spawn(this._ffmpeg, opts, { cwd: this._workingPath, stdio: 'inherit' });
         this._ffmpeg_ps.on('exit', () => {
-            let liveIdx = Live4Web._lives.findIndex(l => l.liveId == this.liveId);
-            if (liveIdx > -1) {
-                let live = Live4Web._lives[liveIdx];
-                Live4Web._lives.splice(liveIdx, 1);
-                live.emit('stop', live.liveId);
-            }
-        });
-        fs.watch(this._workingPath, (evt, fn) => {
-            if (evt == 'rename' && fn.endsWith('.ts')) {
-                if (this._tsBuffers.indexOf(fn) > -1) return;
-                this._tsBuffers.push(fn);
-
-                if (fn == 's_00000.ts') return;
-                // package last ts
-                ins._package(fn.replace(/(\d+)/, w => ('00000' + (parseInt(w) - 1)).slice(-5)));
-            }
-            else if (evt == 'rename' && fn == 'v_init.mp4') {
-                if (ins.liveTime) return;
-                ins.liveTime = new Date();
-                ins.emit('start', ins.getLiveStatus());
-                cb();
-            }
-            else if (evt == 'rename' && fn.endsWith('.mpd')) {
-                //ins.liveTime = new Date();
-                ins._setupNewMPD();
-            }
-
-            // if (evt == 'rename')
-            //     console.log(`event: ${evt}   file: ${fn}`);
+            ins._package(group + '.mp4');
         });
     }
 
     private _package(fn: string) {
         let ins = this;
-        if (this._tsBuffers.length > 10) this._tsBuffers.splice(0, 1);
-
-        console.log('package ' + fn);
-        let opts_add = this._mp4box_add.split(' ');
-        opts_add[opts_add.indexOf('${in}')] = path.join(this._workingPath, fn);
-        opts_add[opts_add.indexOf('${out}')] = path.join(this._workingPath, fn + '.mp4');
-        //console.log(`MP4Box ${opts_add.join(' ')}`);
-        cp.spawn(this._mp4box, opts_add)
-            .on('exit', () => {
-                // video
-                let opts_pkg_v = this._mp4box_pkg.split(' ');
-                opts_pkg_v[opts_pkg_v.indexOf('${dashCtx}')] = path.join(this._workingPath, 'dash-live-v.txt');
-                opts_pkg_v[opts_pkg_v.indexOf('${dashFile}')] = path.join(this._workingPath, 'live_v');
-                opts_pkg_v[opts_pkg_v.indexOf('${prefix}')] = 'v_';
-                opts_pkg_v[opts_pkg_v.indexOf('${input}')] = path.join(this._workingPath, fn + '.mp4' + '#video');
-                //console.log(`MP4Box ${opts_pkg_v.join(' ')}`);
-                cp.spawn(this._mp4box, opts_pkg_v);
-                // audio
-                let opts_pkg_a = this._mp4box_pkg.split(' ');
-                opts_pkg_a[opts_pkg_a.indexOf('${dashCtx}')] = path.join(this._workingPath, 'dash-live-a.txt');
-                opts_pkg_a[opts_pkg_a.indexOf('${dashFile}')] = path.join(this._workingPath, 'live_a');
-                opts_pkg_a[opts_pkg_a.indexOf('${prefix}')] = 'a_';
-                opts_pkg_a[opts_pkg_a.indexOf('${input}')] = path.join(this._workingPath, fn + '.mp4' + '#audio');
-                //console.log(`MP4Box ${opts_pkg_a.join(' ')}`);
-                cp.spawn(this._mp4box, opts_pkg_a)
-                    .on('exit', () => {
-                        setTimeout(function () {
-                            fs.unlink(path.join(ins._workingPath, fn), err => {
-                                if (err) console.error(err)
-                            });
-                            fs.unlink(path.join(ins._workingPath, fn + '.mp4'), err => {
-                                if (err) console.error(err)
-                            });
-                        }, 1000);
-
-                    });
-            });
+        // video
+        let opts_pkg_v = this._mp4box_pkg.split(' ');
+        opts_pkg_v[opts_pkg_v.indexOf('${dashCtx}')] = 'dash-live-v.txt';
+        opts_pkg_v[opts_pkg_v.indexOf('${dashFile}')] = 'live_v';
+        opts_pkg_v[opts_pkg_v.indexOf('${prefix}')] = 'v_';
+        opts_pkg_v[opts_pkg_v.indexOf('${input}')] = fn + '#video';
+        //console.log(`MP4Box ${opts_pkg_v.join(' ')}`);
+        cp.spawn(this._mp4box, opts_pkg_v, { cwd: ins._workingPath, stdio: 'inherit' });
     }
 
     private _setupNewMPD() {

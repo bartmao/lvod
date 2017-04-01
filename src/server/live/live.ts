@@ -6,7 +6,7 @@ import events = require('events');
 
 import ServiceUtils from '../serverutils';
 import ResourceManager from '../resourcemanager';
-const liveConfig = require('./liveconfig.json')
+const liveConfig = require('./liveconfig.json');
 
 export default class Live extends events.EventEmitter {
     static _lives: Array<Live> = [];

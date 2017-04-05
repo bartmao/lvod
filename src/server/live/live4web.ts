@@ -19,7 +19,10 @@ export default class Live4Web extends events.EventEmitter {
     private _mp4box_add: string;
     private _mp4box_pkg: string;
     private _tsBuffers: Array<string>;
+    private _curGroup: number;
 
+    private dir = __dirname + '/../../../resources/bitmap';
+    
     liveId: string;
     sourceType: string;
     sourceTrack: string; // video,audio,mul
@@ -34,9 +37,10 @@ export default class Live4Web extends events.EventEmitter {
         super();
         this._ffmpeg = liveConfig.cmd.ffmpeg;
         this._mp4box = liveConfig.cmd.mp4box;
-        this._ffmpeg_trans = liveConfig.ffmpegtrans;
+        this._ffmpeg_trans = liveConfig.ffmpegtrans4web;
         this._mp4box_add = liveConfig.mp4boxadd;
-        this._mp4box_pkg = liveConfig.mp4boxpkg;
+        this._mp4box_pkg = liveConfig.mp4boxpkg4web;
+        this._curGroup = 1;
 
         this.liveId = nodeuuid.v4();
         this._workingPath = path.join(liveConfig.outputDir, this.liveId);
@@ -55,9 +59,17 @@ export default class Live4Web extends events.EventEmitter {
 
             Live4Web._lives.push(live);
             fs.mkdirSync(live._workingPath);
-            // live._transcode(() => {
-            //     resolve(live.getLiveStatus());
-            // });
+            resolve(live);
+            fs.watch(__dirname + '/../../../resources/bitmap', (evt, fn) => {
+                if (evt == 'rename') {
+                    var gp = parseInt(fn.split('_')[0]);
+                    if (gp > live._curGroup) {
+                        live._transcode()
+                            .then(live._package.bind(live))
+                            .then(() => live._curGroup++);
+                    }
+                }
+            });
         });
     }
 
@@ -88,33 +100,39 @@ export default class Live4Web extends events.EventEmitter {
         };
     }
 
-    signalFramesReady(group: number) {
-        this._transcode(group);
-    }
-
-    private _transcode(group: number) {
+    private _transcode() {
         let ins = this;
-        let opts = this._ffmpeg_trans.split(' ')
-        opts[opts.indexOf('${input}')] = group + '_%d.webp';
-        opts[opts.indexOf('${outputPattern}')] = group + '.mp4';
-        console.log(`FFMPEG ${opts.join(' ')}`);
 
-        this._ffmpeg_ps = cp.spawn(this._ffmpeg, opts, { cwd: this._workingPath, stdio: 'inherit' });
-        this._ffmpeg_ps.on('exit', () => {
-            ins._package(group + '.mp4');
+        return new Promise(resolve => {
+            let opts = ins._ffmpeg_trans.split(' ')
+            opts[opts.indexOf('${input}')] = ins._curGroup + '_%d.webp';
+            opts[opts.indexOf('${outputPattern}')] = ins._curGroup + '.mp4';
+            console.log(`FFMPEG ${opts.join(' ')}`);
+
+            //ins._ffmpeg_ps = cp.spawn(ins._ffmpeg, opts, { cwd: ins._workingPath, stdio: 'inherit' });
+            ins._ffmpeg_ps = cp.spawn(ins._ffmpeg, opts, { cwd: ins.dir, stdio: 'inherit' });
+            ins._ffmpeg_ps.on('exit', () => {
+                resolve();
+            });
         });
     }
 
-    private _package(fn: string) {
+    private _package() {
         let ins = this;
-        // video
-        let opts_pkg_v = this._mp4box_pkg.split(' ');
-        opts_pkg_v[opts_pkg_v.indexOf('${dashCtx}')] = 'dash-live-v.txt';
-        opts_pkg_v[opts_pkg_v.indexOf('${dashFile}')] = 'live_v';
-        opts_pkg_v[opts_pkg_v.indexOf('${prefix}')] = 'v_';
-        opts_pkg_v[opts_pkg_v.indexOf('${input}')] = fn + '#video';
-        //console.log(`MP4Box ${opts_pkg_v.join(' ')}`);
-        cp.spawn(this._mp4box, opts_pkg_v, { cwd: ins._workingPath, stdio: 'inherit' });
+
+        return new Promise(resolve => {
+            // video
+            let fn = ins._curGroup + '.mp4';
+            let opts_pkg_v = ins._mp4box_pkg.split(' ');
+            opts_pkg_v[opts_pkg_v.indexOf('${dashCtx}')] = 'dash-live-v.txt';
+            opts_pkg_v[opts_pkg_v.indexOf('${dashFile}')] = 'live_v';
+            opts_pkg_v[opts_pkg_v.indexOf('${prefix}')] = 'v_';
+            opts_pkg_v[opts_pkg_v.indexOf('${input}')] = fn + '#video';
+            //console.log(`MP4Box ${opts_pkg_v.join(' ')}`);
+            //cp.spawn(ins._mp4box, opts_pkg_v, { cwd: ins._workingPath, stdio: 'inherit' })
+            cp.spawn(ins._mp4box, opts_pkg_v, { cwd: ins.dir, stdio: 'inherit' })
+                .on('exit', () => resolve());
+        });
     }
 
     private _setupNewMPD() {

@@ -7,22 +7,31 @@
 </head>
 
 <body>
-    <script>
-        var r;
-
-
-        function start() {
-            var v = document.getElementById('v0');
-            var c = document.getElementsByTagName('canvas')[0];
-            r = new H5Recorder(v, c);
-            r.start();
-        }
-    </script>
-    <button id='encode' onclick="start()">encode</button><br/>
+    <button id='live' onclick="start()">live</button><br/>
+    <button id='mock' onclick="mock()">mock</button><br/>
+    <button id='stop' onclick="stop()">stop</button><br/>
     <button id='save' onclick="r.save()">save</button><br/>
     <video id='v0' autoplay width="200" height="200"></video>
     <canvas visible width="200" height="200"></canvas>
+    <script>
+        var r;
+        var v = document.getElementById('v0');
+        var c = document.getElementsByTagName('canvas')[0];
 
+        function start() {
+            r = new H5Recorder(v, c);
+            r.start();
+        }
+
+        function mock() {
+            r = new H5Recorder(v, c, true);
+            r.start();
+        }
+
+        function stop() {
+            r.stop();
+        }
+    </script>
 </body>
 
 </html>

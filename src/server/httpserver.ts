@@ -29,27 +29,31 @@ app.get('/', (req, resp) => {
 
 app.all('/live/:op', (req, resp) => {
     let r = liveService.callFunction(req.params['op'], req.body);
-    r.then(v=>{
+    r.then(v => {
         resp.end(JSON.stringify(v));
     });
 });
 
 app.all('/vod/:op', (req, resp) => {
     let r = vodService.callFunction(req.params['op'], req.body);
-    r.then(v=>{
+    r.then(v => {
         resp.end(JSON.stringify(v));
     });
 });
 
-server.listen(80);
+server.listen(8000);
 
-io.on('connection', socket=>{
-  socket.emit('news', { hello: 'world' });
-  socket.on('image', function (data) {
-      let name = data.name;
-      let ws = fs.createWriteStream(__dirname + '/../../resources/' + name);
-      ws.end(new Buffer(data.data, 'base64'));
-  });
+io.on('connection', socket => {
+    socket.emit('news', { hello: 'world' });
+    socket.on('image', data => {
+        let name = data.name;
+        let ws = fs.createWriteStream(__dirname + '/../../resources/bitmap/' + name);
+        ws.end(new Buffer(data.data, 'base64'));
+    });
+    socket.on('service', req => {
+        liveService.callFunction(req.op, req)
+            .then(v => socket.emit('service', v));
+    });
 });
 
 console.log('application server started!');

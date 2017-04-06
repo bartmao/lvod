@@ -7,8 +7,9 @@ class H5Recorder {
     private _socket;
     private _videoStream: MediaStream;
     private _isRunning = false;
-    private _fps = 2;
+    private _fps = 3;
     private _tick = 0;
+    private _dur = 2;
     private _seq = 0;
     private _subseq = 0;
     private _sec = 0;
@@ -62,7 +63,7 @@ class H5Recorder {
         let ts = +new Date();
         let tick = Math.floor(ts / (1000 / this._fps));
         let sec = Math.floor(ts / 1000);
-        if (this._sec < sec) {
+        if (this._sec + this._dur <= sec) {
             this._sec = sec;
             this._subseq = 0;
             this._seq++;

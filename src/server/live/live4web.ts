@@ -21,8 +21,6 @@ export default class Live4Web extends events.EventEmitter {
     private _tsBuffers: Array<string>;
     private _curGroup: number;
 
-    private dir = __dirname + '/../../../resources/bitmap';
-    
     liveId: string;
     sourceType: string;
     sourceTrack: string; // video,audio,mul
@@ -59,17 +57,19 @@ export default class Live4Web extends events.EventEmitter {
 
             Live4Web._lives.push(live);
             fs.mkdirSync(live._workingPath);
-            resolve(live);
-            fs.watch(__dirname + '/../../../resources/bitmap', (evt, fn) => {
-                if (evt == 'rename') {
-                    var gp = parseInt(fn.split('_')[0]);
-                    if (gp > live._curGroup) {
-                        live._transcode()
-                            .then(live._package.bind(live))
-                            .then(() => live._curGroup++);
-                    }
-                }
+            resolve({
+                liveId: live.liveId
             });
+            // fs.watch(__dirname + '/../../../resources/bitmap', (evt, fn) => {
+            //     if (evt == 'rename') {
+            //         var gp = parseInt(fn.split('_')[0]);
+            //         if (gp > live._curGroup) {
+            //             live._transcode()
+            //                 .then(live._package.bind(live))
+            //                 .then(() => live._curGroup++);
+            //         }
+            //     }
+            // });
         });
     }
 
@@ -93,6 +93,20 @@ export default class Live4Web extends events.EventEmitter {
         });
     }
 
+    static uploadFrame(liveId: string, req) {
+        return new Promise(resolve => {
+            let live = this._lives.find(l => l.liveId == liveId);
+            let ws = fs.createWriteStream(path.join(live._workingPath, req.name));
+            ws.end(new Buffer(req.data, 'base64'), resolve);
+        });
+    }
+
+    static transcodeFrame(liveId: string, req) {
+        let live = this._lives.find(l => l.liveId == liveId);
+        live._curGroup = req.seq;
+        return live._transcode();
+    }
+
     getLiveStatus() {
         return {
             liveId: this.liveId,
@@ -109,29 +123,35 @@ export default class Live4Web extends events.EventEmitter {
             opts[opts.indexOf('${outputPattern}')] = ins._curGroup + '.mp4';
             console.log(`FFMPEG ${opts.join(' ')}`);
 
-            //ins._ffmpeg_ps = cp.spawn(ins._ffmpeg, opts, { cwd: ins._workingPath, stdio: 'inherit' });
-            ins._ffmpeg_ps = cp.spawn(ins._ffmpeg, opts, { cwd: ins.dir, stdio: 'inherit' });
+            ins._ffmpeg_ps = cp.spawn(ins._ffmpeg, opts, { cwd: ins._workingPath, stdio: 'inherit' });
             ins._ffmpeg_ps.on('exit', () => {
                 resolve();
             });
-        });
+        }).then(ins._package.bind(this));
     }
 
     private _package() {
         let ins = this;
+        let group = this._curGroup;
 
         return new Promise(resolve => {
             // video
-            let fn = ins._curGroup + '.mp4';
+            let fn = group + '.mp4';
             let opts_pkg_v = ins._mp4box_pkg.split(' ');
             opts_pkg_v[opts_pkg_v.indexOf('${dashCtx}')] = 'dash-live-v.txt';
             opts_pkg_v[opts_pkg_v.indexOf('${dashFile}')] = 'live_v';
             opts_pkg_v[opts_pkg_v.indexOf('${prefix}')] = 'v_';
             opts_pkg_v[opts_pkg_v.indexOf('${input}')] = fn + '#video';
             //console.log(`MP4Box ${opts_pkg_v.join(' ')}`);
-            //cp.spawn(ins._mp4box, opts_pkg_v, { cwd: ins._workingPath, stdio: 'inherit' })
-            cp.spawn(ins._mp4box, opts_pkg_v, { cwd: ins.dir, stdio: 'inherit' })
-                .on('exit', () => resolve());
+            cp.spawn(ins._mp4box, opts_pkg_v, { cwd: ins._workingPath, stdio: 'inherit' })
+                .on('exit', () => {
+                    fs.readdir(ins._workingPath, (err, files)=>{
+                        files.forEach(f=>{
+                            if(f.startsWith(group + '_')) fs.unlink(path.join(ins._workingPath, f));
+                        });
+                    });
+                    resolve();
+                });
         });
     }
 

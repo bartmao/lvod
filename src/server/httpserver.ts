@@ -30,6 +30,7 @@ app.get('/', (req, resp) => {
 app.all('/live/:op', (req, resp) => {
     let r = liveService.callFunction(req.params['op'], req.body);
     r.then(v => {
+        v = v ? v : {};
         resp.end(JSON.stringify(v));
     });
 });
@@ -37,6 +38,7 @@ app.all('/live/:op', (req, resp) => {
 app.all('/vod/:op', (req, resp) => {
     let r = vodService.callFunction(req.params['op'], req.body);
     r.then(v => {
+        v = v ? v : {};
         resp.end(JSON.stringify(v));
     });
 });

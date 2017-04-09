@@ -4,6 +4,7 @@
     <script src="js/jquery-2.0.0.min.js"></script>
     <script src="js/socket.io.min.js"></script>
     <script src="jst/h5recorder.js"></script>
+    <script src="http://cdn.dashjs.org/latest/dash.all.debug.js"></script>
 </head>
 
 <body>
@@ -11,26 +12,36 @@
     <button id='mock' onclick="mock()">mock</button><br/>
     <button id='stop' onclick="stop()">stop</button><br/>
     <button id='save' onclick="r.save()">save</button><br/>
+    <!--<button id='play' onclick="play()">play</button><br/>-->
     <video id='v0' autoplay width="200" height="200"></video>
     <canvas visible width="200" height="200"></canvas>
+    <video id="video-sample" data-dashjs-player controls="true" width="90%"></video>
+
     <script>
-        var r;
-        var v = document.getElementById('v0');
-        var c = document.getElementsByTagName('canvas')[0];
+                               var r, _player;
+                               var v = document.getElementById('v0');
+                               var c = document.getElementsByTagName('canvas')[0];
 
-        function start() {
-            r = new H5Recorder(v, c);
-            r.start();
-        }
+                               function start() {
+                                   r = new H5Recorder(v, c);
+                                   r.start();
+                               }
 
-        function mock() {
-            r = new H5Recorder(v, c, true);
-            r.start();
-        }
+                               function mock() {
+                                   r = new H5Recorder(v, c, true);
+                                   r.start();
+                               }
 
-        function stop() {
-            r.stop();
-        }
+                               function stop() {
+                                   r.stop();
+                               }
+
+                               function play(url) {
+                                   if (!_player)
+                                       _player = dashjs.MediaPlayer().create();
+                                   _player.initialize($("#video-sample")[0], null, true);
+                                   _player.attachSource(url);
+                               }
     </script>
 </body>
 

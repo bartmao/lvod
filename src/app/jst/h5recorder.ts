@@ -7,13 +7,19 @@ class H5Recorder {
     private _socket;
     private _videoStream: MediaStream;
     private _isRunning = false;
-    private _fps = 3;
+
+    private _ts = 0;
+    private _fps = 15;
     private _tick = 0;
-    private _dur = 2;
-    private _seq = 0;
-    private _subseq = 0;
-    private _sec = 0;
+    private _dur = 4;
     private _last_time: number;
+
+    private _liveStatus = 0;
+    private _liveId: string;
+
+    private _frameQueue = [];
+    private _curSeq = 0;
+    private _isUploading = false;
 
     constructor(private _video, private _canvas, private _mockup: boolean = false) {
         let ins = this;
@@ -30,18 +36,28 @@ class H5Recorder {
             });
         }
 
-        this._initNetwork();
+        //this._initNetwork();
     }
 
     start() {
         this._isRunning = true;
-        this.draw();
-        this._socket.emit('service', {
-            ts: new Date,
+        $.post('live/startlive', {
             type: 1,
-            source: 'live',
-            op: 'startlive'
+            ts: new Date()
+        }, data => {
+            let live = JSON.parse(data);
+            this._liveStatus = 1;
+            this._liveId = live.liveId;
+            console.log('start live: ' + this._liveId);
+            this._ts = +new Date();
+            this.draw();
         });
+        // this._socket.emit('service', {
+        //     ts: new Date,
+        //     type: 1,
+        //     source: 'live',
+        //     op: 'startlive'
+        // });
     }
 
     stop() {
@@ -60,34 +76,54 @@ class H5Recorder {
             this._getClock();
         }
 
-        let ts = +new Date();
-        let tick = Math.floor(ts / (1000 / this._fps));
-        let sec = Math.floor(ts / 1000);
-        if (this._sec + this._dur <= sec) {
-            this._sec = sec;
-            this._subseq = 0;
-            this._seq++;
-        }
-        if (tick > this._tick) {
+        let ts = +new Date() - this._ts;
+        let seq = Math.floor(ts / 1000 / this._dur);
+        let tick = Math.floor((ts - this._dur * seq * 1000) * this._fps / 1000);
+        if (tick > this._tick || (tick == 0 && this._tick > 0)) {
             this._tick = tick;
-            this._upload(this._seq + '_' + this._subseq++ + '.webp');
+            let fn = seq + '_' + tick++ + '.webp';
+            this._frameQueue.push([fn, this._canvas.toDataURL('image/webp'), seq]);
+            this._upload();
         }
 
         requestAnimationFrame(this.draw.bind(this));
     }
 
     save() {
-        let ctx = this._canvas.getContext('2d');
-        this._upload('sample' + '.webp');
+        // let ctx = this._canvas.getContext('2d');
+        // this._upload('sample' + '.webp');
     }
 
-    private _upload(name) {
-        let img = this._canvas.toDataURL('image/webp');
-        console.log(img.substr(0, 100));
-        this._socket.emit('image', {
-            name: name,
-            data: img.substr(23)
+    private _upload() {
+        if (this._isUploading) return;
+        if (this._frameQueue.length == 0) return;
+
+        this._isUploading = true;
+        let frame = this._frameQueue.splice(0, 1)[0];
+        let seq = frame[2];
+
+        $.post('live/uploadFrame', {
+            liveId: this._liveId,
+            name: frame[0],
+            data: frame[1].substr(23)
+        }, resp => {
+            this._isUploading = false;
+            if (this._curSeq != seq) {
+                // all frames of the same seq sent, notify server to transcode
+                let seqToHandle = this._curSeq;
+                $.post('live/transcodeframe', {
+                    liveId: this._liveId,
+                    seq: seqToHandle
+                }, ()=>{
+                    console.log('transcoded ' + seqToHandle);
+                    if(!_player){
+                        play(this._liveId + '/live_v.mpd')
+                    }
+                });
+                this._curSeq = seq;
+            }
         });
+
     }
 
     private _initNetwork() {

@@ -28,4 +28,12 @@ export default class LiveService extends ServiceBase {
             return livings.map(l => this.getPublicFields(l));
         })
     }
+
+    uploadFrame(req){
+        return Live4Web.uploadFrame(req.liveId, req);
+    }
+
+    transcodeFrame(req){
+        return Live4Web.transcodeFrame(req.liveId, req);
+    }
 }

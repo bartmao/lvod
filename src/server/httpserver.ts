@@ -12,9 +12,17 @@ let liveService = new LiveService();
 let vodService = new VODService();
 
 app.use((req, resp, next) => {
-    console.log(req.path);
+    if (!req.path.endsWith('uploadFrame'))
+        console.log(req.path);
     next();
 });
+
+// app.get('/:liveId/v_:gp.m4s', (req, resp, next) => {
+//     //liveService.
+//     console.log(req.params['liveId']);
+//     console.log(req.params['gp']);
+//     next();
+// });
 
 app.use(express.static('bin/app'));
 app.use(express.static('resources'));
@@ -22,6 +30,10 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
     extended: true
 }));
+// app.use(function (err, req, res, next) {
+//   console.error(err.stack)
+//   res.status(500).send('Something broke!')
+// })
 
 app.get('/', (req, resp) => {
     resp.redirect('/dashboard.html');

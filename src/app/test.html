@@ -1,0 +1,25 @@
+<html>
+
+<head>
+    <script src="js/jquery-2.0.0.min.js"></script>
+    <script src="http://cdn.dashjs.org/latest/dash.all.debug.js"></script>
+</head>
+
+<body>
+    <button id='play' onclick="play()">play</button><br/>
+    <video id="video-sample" data-dashjs-player controls="true" width="90%"></video>
+
+    <script>
+        var _player;
+
+        function play() {
+            url = 'http://localhost:8000/c737652c-fac4-4420-b7c8-b889fe25043c/live_v.1.mpd';
+            if (!_player)
+                _player = dashjs.MediaPlayer().create();
+            _player.initialize($("#video-sample")[0], null, true);
+            _player.attachSource(url);
+        }
+    </script>
+</body>
+
+</html>

@@ -123,7 +123,7 @@ export default class Live4Web extends events.EventEmitter {
             opts[opts.indexOf('${outputPattern}')] = ins._curGroup + '.mp4';
             console.log(`FFMPEG ${opts.join(' ')}`);
 
-            ins._ffmpeg_ps = cp.spawn(ins._ffmpeg, opts, { cwd: ins._workingPath, stdio: 'inherit' });
+            ins._ffmpeg_ps = cp.spawn(ins._ffmpeg, opts, { cwd: ins._workingPath});
             ins._ffmpeg_ps.on('exit', () => {
                 resolve();
             });
@@ -142,14 +142,17 @@ export default class Live4Web extends events.EventEmitter {
             opts_pkg_v[opts_pkg_v.indexOf('${dashFile}')] = 'live_v';
             opts_pkg_v[opts_pkg_v.indexOf('${prefix}')] = 'v_';
             opts_pkg_v[opts_pkg_v.indexOf('${input}')] = fn + '#video';
-            //console.log(`MP4Box ${opts_pkg_v.join(' ')}`);
-            cp.spawn(ins._mp4box, opts_pkg_v, { cwd: ins._workingPath, stdio: 'inherit' })
+            console.log(`MP4Box ${opts_pkg_v.join(' ')}`);
+            cp.spawn(ins._mp4box, opts_pkg_v, { cwd: ins._workingPath})
                 .on('exit', () => {
-                    fs.readdir(ins._workingPath, (err, files)=>{
-                        files.forEach(f=>{
-                            if(f.startsWith(group + '_')) fs.unlink(path.join(ins._workingPath, f));
-                        });
-                    });
+                    // fs.readdir(ins._workingPath, (err, files)=>{
+                    //     files.forEach(f=>{
+                    //         if(f.startsWith(group + '_'))
+                    //             fs.unlink(path.join(ins._workingPath, f), err=>{
+                    //                 if(err) console.log(err);
+                    //             });
+                    //     });
+                    // });
                     resolve();
                 });
         });

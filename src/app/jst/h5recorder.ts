@@ -10,8 +10,11 @@ class H5Recorder {
 
     private _ts = 0;
     private _fps = 15;
-    private _tick = 0;
-    private _dur = 4;
+    private _dur = 1;
+    private _sec = 0;
+    private _tick = -1;
+    private _seq = 0;
+    private _subseq = 0;
     private _last_time: number;
 
     private _liveStatus = 0;
@@ -28,7 +31,7 @@ class H5Recorder {
                 myNavigator.webkitGetUserMedia ||
                 myNavigator.mozGetUserMedia ||
                 myNavigator.msGetUserMedia;
-            myNavigator.getUserMedia({ video: true, audio: true }, function (stream) {
+            myNavigator.getUserMedia({ video: true}, function (stream) {
                 ins._video.src = window.URL.createObjectURL(stream);
                 ins._videoStream = stream;
             }, err => {
@@ -77,12 +80,18 @@ class H5Recorder {
         }
 
         let ts = +new Date() - this._ts;
-        let seq = Math.floor(ts / 1000 / this._dur);
-        let tick = Math.floor((ts - this._dur * seq * 1000) * this._fps / 1000);
+        let sec = Math.floor(ts / 1000 / this._dur);
+        let tick = Math.floor((ts - this._dur * sec * 1000) * this._fps / 1000);
+        if(sec > this._sec){
+            this._sec = sec;
+            this._seq++;
+        }
         if (tick > this._tick || (tick == 0 && this._tick > 0)) {
+            if(tick == 0) this._subseq = 0;
+            else this._subseq++;
             this._tick = tick;
-            let fn = seq + '_' + tick++ + '.webp';
-            this._frameQueue.push([fn, this._canvas.toDataURL('image/webp'), seq]);
+            let fn = this._seq + '_' + this._subseq + '.webp';
+            this._frameQueue.push([fn, this._canvas.toDataURL('image/webp'), this._seq]);
             this._upload();
         }
 

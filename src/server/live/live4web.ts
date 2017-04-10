@@ -21,6 +21,8 @@ export default class Live4Web extends events.EventEmitter {
     private _tsBuffers: Array<string>;
     private _curGroup: number;
 
+    private _optime: number;
+
     liveId: string;
     sourceType: string;
     sourceTrack: string; // video,audio,mul
@@ -116,14 +118,18 @@ export default class Live4Web extends events.EventEmitter {
 
     private _transcode() {
         let ins = this;
-
+        if(!ins.liveTime){
+             ins.liveTime = new Date();
+             console.log(ins.liveTime.toTimeString() + '.' + ins.liveTime.getMilliseconds());
+        }
+        ins._optime = +new Date();
         return new Promise(resolve => {
             let opts = ins._ffmpeg_trans.split(' ')
             opts[opts.indexOf('${input}')] = ins._curGroup + '_%d.webp';
             opts[opts.indexOf('${outputPattern}')] = ins._curGroup + '.mp4';
-            console.log(`FFMPEG ${opts.join(' ')}`);
+            //console.log(`FFMPEG ${opts.join(' ')}`);
 
-            ins._ffmpeg_ps = cp.spawn(ins._ffmpeg, opts, { cwd: ins._workingPath});
+            ins._ffmpeg_ps = cp.spawn(ins._ffmpeg, opts, { cwd: ins._workingPath });
             ins._ffmpeg_ps.on('exit', () => {
                 resolve();
             });
@@ -142,17 +148,18 @@ export default class Live4Web extends events.EventEmitter {
             opts_pkg_v[opts_pkg_v.indexOf('${dashFile}')] = 'live_v';
             opts_pkg_v[opts_pkg_v.indexOf('${prefix}')] = 'v_';
             opts_pkg_v[opts_pkg_v.indexOf('${input}')] = fn + '#video';
-            console.log(`MP4Box ${opts_pkg_v.join(' ')}`);
-            cp.spawn(ins._mp4box, opts_pkg_v, { cwd: ins._workingPath})
+            //console.log(`MP4Box ${opts_pkg_v.join(' ')}`);
+            cp.spawn(ins._mp4box, opts_pkg_v, { cwd: ins._workingPath })
                 .on('exit', () => {
-                    // fs.readdir(ins._workingPath, (err, files)=>{
-                    //     files.forEach(f=>{
-                    //         if(f.startsWith(group + '_'))
-                    //             fs.unlink(path.join(ins._workingPath, f), err=>{
-                    //                 if(err) console.log(err);
-                    //             });
-                    //     });
-                    // });
+                    console.log(`Group ${group} using ${+new Date - this._optime}ms`);
+                    fs.readdir(ins._workingPath, (err, files)=>{
+                        files.forEach(f=>{
+                            if(f.startsWith(group + '_'))
+                                fs.unlink(path.join(ins._workingPath, f), err=>{
+                                    if(err) console.log(err);
+                                });
+                        });
+                    });
                     resolve();
                 });
         });

@@ -12,8 +12,9 @@ let liveService = new LiveService();
 let vodService = new VODService();
 
 app.use((req, resp, next) => {
+    let t = new Date();
     if (!req.path.endsWith('uploadFrame'))
-        console.log(req.path);
+        console.log(`${t.toTimeString()}.${t.getMilliseconds()}  ${req.path}`);
     next();
 });
 

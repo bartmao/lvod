@@ -21,7 +21,7 @@ export default class Live4Web extends events.EventEmitter {
     private _tsBuffers: Array<string>;
 
     private _optime: number;
-    
+
     curGroup: number;
     workingPath: string = null;
     liveId: string;
@@ -63,16 +63,11 @@ export default class Live4Web extends events.EventEmitter {
             resolve({
                 liveId: live.liveId
             });
-            // fs.watch(__dirname + '/../../../resources/bitmap', (evt, fn) => {
-            //     if (evt == 'rename') {
-            //         var gp = parseInt(fn.split('_')[0]);
-            //         if (gp > live._curGroup) {
-            //             live._transcode()
-            //                 .then(live._package.bind(live))
-            //                 .then(() => live._curGroup++);
-            //         }
-            //     }
-            // });
+            fs.watch(live.workingPath, (evt, fn) => {
+                if (evt == 'rename' && (fn.endsWith('mp4') || fn.endsWith('m4s'))) {
+                    console.log(ServerUtils.getShortTime() + ' ' + fn + ' rename');
+                }
+            });
         });
     }
 
@@ -119,9 +114,9 @@ export default class Live4Web extends events.EventEmitter {
 
     private _transcode() {
         let ins = this;
-        if(!ins.liveTime){
-             ins.liveTime = new Date();
-             console.log(`live time: ${ServerUtils.getShortTime(ins.liveTime)}`);
+        if (!ins.liveTime) {
+            ins.liveTime = new Date();
+            console.log(`live time: ${ServerUtils.getShortTime(ins.liveTime)}`);
         }
         ins._optime = +new Date();
         return new Promise(resolve => {
@@ -153,11 +148,15 @@ export default class Live4Web extends events.EventEmitter {
             cp.spawn(ins._mp4box, opts_pkg_v, { cwd: ins.workingPath })
                 .on('exit', () => {
                     console.log(`Group ${group} using ${+new Date - this._optime}ms`);
-                    fs.readdir(ins.workingPath, (err, files)=>{
-                        files.forEach(f=>{
-                            if(f.startsWith(group + '_'))
-                                fs.unlink(path.join(ins.workingPath, f), err=>{
-                                    if(err) console.log(err);
+                    let f = ins.workingPath + '/v_' + group + '.m4s';
+                    fs.exists(f, exists => {
+                        console.log(`Group ${group} ${exists ? "" : "NOT"} exists`);
+                    });
+                    fs.readdir(ins.workingPath, (err, files) => {
+                        files.forEach(f => {
+                            if (f.startsWith(group + '_'))
+                                fs.unlink(path.join(ins.workingPath, f), err => {
+                                    if (err) console.log(err);
                                 });
                         });
                     });

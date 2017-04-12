@@ -8,5 +8,5 @@
     "mp4boxadd": "-add ${in} ${out}",
     "mp4boxpkg": "-dash-ctx ${dashCtx} -dash 1000 -ast-offset -no-frags-default -bs-switching no -min-buffer 40000 -url-template -time-shift 20 -segment-name ${prefix} -out ${dashFile} -dynamic -mpd-refresh 100000 ${input}",
     "ffmpegtrans4web": "-r 15 -i ${input} -vf scale=640:trunc(640/a) -c:v libx264 -crf 23 -preset ultrafast -x264opts keyint=15:min-keyint=15:no-scenecut -maxrate 1M -bufsize 2M -f mp4 ${outputPattern}",
-    "mp4boxpkg4web": "-dash-ctx ${dashCtx} -dash 2000 -ast-offset -no-frags-default -bs-switching no -min-buffer -1 -url-template -time-shift 2000 -segment-name ${prefix} -out ${dashFile} -dynamic -mpd-refresh 100000 ${input}"
+    "mp4boxpkg4web": "-dash-ctx ${dashCtx} -dash 1000 -ast-offset -no-frags-default -bs-switching no -min-buffer -1 -url-template -time-shift 2000 -segment-name ${prefix} -out ${dashFile} -dynamic -mpd-refresh 100000 ${input}"
 }

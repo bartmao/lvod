@@ -10,7 +10,7 @@ class H5Recorder {
 
     private _ts = 0;
     private _fps = 15;
-    private _dur = 1;
+    private _dur = 2;
     private _sec = 0;
     private _tick = -1;
     private _seq = 0;

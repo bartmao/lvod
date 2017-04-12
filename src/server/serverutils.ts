@@ -5,4 +5,9 @@ export default class ServiceUtils{
         if(path.isAbsolute(p)) return p;
         return path.resolve(p);
     }
+
+    static getShortTime(t?:Date){
+        if(!t) t= new Date();
+        return `${t.getHours()}:${t.getMinutes()}:${t.getSeconds()}.${('000'+t.getMilliseconds()).substr(0,3)}`;
+    }
 }

@@ -4,13 +4,13 @@ import cp = require('child_process');
 import fs = require('fs');
 import events = require('events');
 
+import ServerUtils from '../serverutils';
 import ResourceManager from '../resourcemanager';
 const liveConfig = require('./liveconfig.json')
 
 export default class Live4Web extends events.EventEmitter {
     static _lives: Array<Live4Web> = [];
 
-    private _workingPath: string = null;
     private _ffmpeg_ps: cp.ChildProcess;
 
     private _ffmpeg: string;
@@ -19,10 +19,11 @@ export default class Live4Web extends events.EventEmitter {
     private _mp4box_add: string;
     private _mp4box_pkg: string;
     private _tsBuffers: Array<string>;
-    private _curGroup: number;
 
     private _optime: number;
-
+    
+    curGroup: number;
+    workingPath: string = null;
     liveId: string;
     sourceType: string;
     sourceTrack: string; // video,audio,mul
@@ -40,10 +41,10 @@ export default class Live4Web extends events.EventEmitter {
         this._ffmpeg_trans = liveConfig.ffmpegtrans4web;
         this._mp4box_add = liveConfig.mp4boxadd;
         this._mp4box_pkg = liveConfig.mp4boxpkg4web;
-        this._curGroup = 1;
+        this.curGroup = 1;
 
         this.liveId = nodeuuid.v4();
-        this._workingPath = path.join(liveConfig.outputDir, this.liveId);
+        this.workingPath = path.join(liveConfig.outputDir, this.liveId);
         this._tsBuffers = [];
     }
 
@@ -58,7 +59,7 @@ export default class Live4Web extends events.EventEmitter {
             live.initTime = req.reqTime;
 
             Live4Web._lives.push(live);
-            fs.mkdirSync(live._workingPath);
+            fs.mkdirSync(live.workingPath);
             resolve({
                 liveId: live.liveId
             });
@@ -98,14 +99,14 @@ export default class Live4Web extends events.EventEmitter {
     static uploadFrame(liveId: string, req) {
         return new Promise(resolve => {
             let live = this._lives.find(l => l.liveId == liveId);
-            let ws = fs.createWriteStream(path.join(live._workingPath, req.name));
+            let ws = fs.createWriteStream(path.join(live.workingPath, req.name));
             ws.end(new Buffer(req.data, 'base64'), resolve);
         });
     }
 
     static transcodeFrame(liveId: string, req) {
         let live = this._lives.find(l => l.liveId == liveId);
-        live._curGroup = req.seq;
+        live.curGroup = req.seq;
         return live._transcode();
     }
 
@@ -120,16 +121,16 @@ export default class Live4Web extends events.EventEmitter {
         let ins = this;
         if(!ins.liveTime){
              ins.liveTime = new Date();
-             console.log(ins.liveTime.toTimeString() + '.' + ins.liveTime.getMilliseconds());
+             console.log(`live time: ${ServerUtils.getShortTime(ins.liveTime)}`);
         }
         ins._optime = +new Date();
         return new Promise(resolve => {
             let opts = ins._ffmpeg_trans.split(' ')
-            opts[opts.indexOf('${input}')] = ins._curGroup + '_%d.webp';
-            opts[opts.indexOf('${outputPattern}')] = ins._curGroup + '.mp4';
+            opts[opts.indexOf('${input}')] = ins.curGroup + '_%d.webp';
+            opts[opts.indexOf('${outputPattern}')] = ins.curGroup + '.mp4';
             //console.log(`FFMPEG ${opts.join(' ')}`);
 
-            ins._ffmpeg_ps = cp.spawn(ins._ffmpeg, opts, { cwd: ins._workingPath });
+            ins._ffmpeg_ps = cp.spawn(ins._ffmpeg, opts, { cwd: ins.workingPath });
             ins._ffmpeg_ps.on('exit', () => {
                 resolve();
             });
@@ -138,7 +139,7 @@ export default class Live4Web extends events.EventEmitter {
 
     private _package() {
         let ins = this;
-        let group = this._curGroup;
+        let group = this.curGroup;
 
         return new Promise(resolve => {
             // video
@@ -149,13 +150,13 @@ export default class Live4Web extends events.EventEmitter {
             opts_pkg_v[opts_pkg_v.indexOf('${prefix}')] = 'v_';
             opts_pkg_v[opts_pkg_v.indexOf('${input}')] = fn + '#video';
             //console.log(`MP4Box ${opts_pkg_v.join(' ')}`);
-            cp.spawn(ins._mp4box, opts_pkg_v, { cwd: ins._workingPath })
+            cp.spawn(ins._mp4box, opts_pkg_v, { cwd: ins.workingPath })
                 .on('exit', () => {
                     console.log(`Group ${group} using ${+new Date - this._optime}ms`);
-                    fs.readdir(ins._workingPath, (err, files)=>{
+                    fs.readdir(ins.workingPath, (err, files)=>{
                         files.forEach(f=>{
                             if(f.startsWith(group + '_'))
-                                fs.unlink(path.join(ins._workingPath, f), err=>{
+                                fs.unlink(path.join(ins.workingPath, f), err=>{
                                     if(err) console.log(err);
                                 });
                         });
@@ -167,20 +168,20 @@ export default class Live4Web extends events.EventEmitter {
 
     private _setupNewMPD() {
         let ins = this;
-        fs.exists(path.join(ins._workingPath, 'live_fix.mpd'), exists => {
+        fs.exists(path.join(ins.workingPath, 'live_fix.mpd'), exists => {
             if (!exists) {
-                if (!fs.existsSync(path.join(ins._workingPath, 'live_v.mpd'))) return;
-                if (!fs.existsSync(path.join(ins._workingPath, 'live_a.mpd'))) return;
+                if (!fs.existsSync(path.join(ins.workingPath, 'live_v.mpd'))) return;
+                if (!fs.existsSync(path.join(ins.workingPath, 'live_a.mpd'))) return;
 
-                var mpdv = fs.readFileSync(path.join(ins._workingPath, 'live_v.mpd'), { encoding: 'utf8' });
+                var mpdv = fs.readFileSync(path.join(ins.workingPath, 'live_v.mpd'), { encoding: 'utf8' });
                 mpdv = mpdv.replace(/availabilityStartTime=\".+?\"/
                     , 'availabilityStartTime="' + ins.liveTime.toISOString() + '"');
-                var mpda = fs.readFileSync(path.join(ins._workingPath, 'live_a.mpd'), { encoding: 'utf8' });
+                var mpda = fs.readFileSync(path.join(ins.workingPath, 'live_a.mpd'), { encoding: 'utf8' });
                 var insertPt = mpdv.lastIndexOf('</AdaptationSet>') + 16;
                 var audioStart = mpda.indexOf('<AdaptationSet');
                 var audioEnd = mpda.lastIndexOf('</AdaptationSet>') + 16;
 
-                let ws = fs.createWriteStream(path.join(ins._workingPath, 'live_fix.mpd'), { encoding: 'utf8' });
+                let ws = fs.createWriteStream(path.join(ins.workingPath, 'live_fix.mpd'), { encoding: 'utf8' });
                 ws.end(mpdv.substring(0, insertPt)
                     + mpda.substring(audioStart, audioEnd)
                     + mpdv.substr(insertPt, mpdv.length - 1));

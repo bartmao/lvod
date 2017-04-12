@@ -29,6 +29,10 @@ export default class LiveService extends ServiceBase {
         })
     }
 
+    getLiveStatus(liveId){
+        return Live4Web.getLivings().then(lives=>lives.find(l=>l.liveId==liveId));
+    }
+
     uploadFrame(req){
         return Live4Web.uploadFrame(req.liveId, req);
     }

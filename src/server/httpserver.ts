@@ -1,8 +1,10 @@
 import express = require('express');
 import fs = require('fs');
+import path = require('path');
 import bodyParser = require('body-parser');
 import LiveService from './live/liveservice';
 import VODService from './vod/vodservice';
+import ServiceUtils from './serverutils'
 
 let app = express();
 let server = require('http').Server(app);
@@ -14,7 +16,7 @@ let vodService = new VODService();
 app.use((req, resp, next) => {
     let t = new Date();
     if (!req.path.endsWith('uploadFrame'))
-        console.log(`${t.toTimeString()}.${t.getMilliseconds()}  ${req.path}`);
+        console.log(`${ServiceUtils.getShortTime()}  ${req.path}`);
     next();
 });
 
@@ -31,10 +33,6 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
     extended: true
 }));
-// app.use(function (err, req, res, next) {
-//   console.error(err.stack)
-//   res.status(500).send('Something broke!')
-// })
 
 app.get('/', (req, resp) => {
     resp.redirect('/dashboard.html');
@@ -54,6 +52,27 @@ app.all('/vod/:op', (req, resp) => {
         v = v ? v : {};
         resp.end(JSON.stringify(v));
     });
+});
+
+app.use(function (req, resp, next) {
+    // let m;
+    // if (m = req.url.match(/\/(.*)\/v_(\d+).m4s/)) {
+    //     let liveId = m[1];
+    //     let gp = parseInt(m[2]);
+    //     liveService.getLiveStatus(liveId).then(live => {
+    //         let watchFn = path.join(live.workingPath, 'v_' + (gp + 1) + '.m4s');
+    //         if (gp < live.curGroup + 2) {
+    //             fs.watchFile(watchFn, fileCreated);
+    //             setTimeout(()=>fs.unwatchFile(watchFn, fileCreated), 5000);
+    //         }
+
+    //         function fileCreated() {
+    //             fs.createReadStream(path.join(live.workingPath, 'v_' + gp + '.m4s')).pipe(resp);
+    //             fs.unwatchFile(watchFn, fileCreated);
+    //         }
+    //     });
+    // }
+    next();
 });
 
 server.listen(8000);

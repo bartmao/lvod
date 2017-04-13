@@ -12,7 +12,7 @@
     <button id='mock' onclick="mock()">mock</button><br/>
     <button id='stop' onclick="stop()">stop</button><br/>
     <button id='save' onclick="r.save()">save</button><br/>
-    <!--<button id='play' onclick="play()">play</button><br/>-->
+    <button id='seekback' onclick="seekback()">seekbackplay</button><br/>
     <video id='v0' autoplay width="200" height="200"></video>
     <canvas visible width="200" height="200"></canvas>
     <video id="video-sample" data-dashjs-player controls="true" width="90%"></video>
@@ -36,11 +36,18 @@
                                    r.stop();
                                }
 
+                               function seekback(){
+                                   _player.seek
+                               }
                                function play(url) {
                                    if (!_player)
                                        _player = dashjs.MediaPlayer().create();
                                    _player.initialize($("#video-sample")[0], null, true);
                                    _player.attachSource(url);
+                                   _player.on(dashjs.MediaPlayer.events.ERROR, function(p,q,g){
+                                       console.log('FRAGMENT_LOADING_COMPLETED');
+                                   });
+                                   _player.setLiveDelayFragmentCount(5);
                                }
     </script>
 </body>

@@ -8,12 +8,12 @@ export default class LiveService extends ServiceBase {
     startLive(req) {
         if (req.type == 0)
             return Live.startLive({
-                reqTime: req.ts,
+                reqTime: new Date(req.ts),
                 type: req.type,
                 source: req.source
             });
         return Live4Web.startLive({
-            reqTime: req.ts,
+            reqTime: new Date(req.ts),
             type: req.type,
             source: req.source
         });
@@ -33,11 +33,7 @@ export default class LiveService extends ServiceBase {
         return Live4Web.getLivings().then(lives=>lives.find(l=>l.liveId==liveId));
     }
 
-    uploadFrame(req){
-        return Live4Web.uploadFrame(req.liveId, req);
-    }
-
-    transcodeFrame(req){
-        return Live4Web.transcodeFrame(req.liveId, req);
+    uploadFrames(req){
+        return Live4Web.uploadFrames(req.liveId, req.seq, req.frames);
     }
 }

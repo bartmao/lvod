@@ -10,6 +10,9 @@
             "name": "Launch Program",
             "program": "${workspaceRoot}/src/server/httpserver.ts",
             "cwd": "${workspaceRoot}",
+            "args": [
+                ">", "output.txt"
+            ],
             "outFiles": [
                 "${workspaceRoot}/bin/**/*"
             ],

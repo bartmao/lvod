@@ -2,6 +2,8 @@
 let myNavigator: any = navigator;
 let myWindow: any = window;
 let io: any;
+declare var _player;
+declare var play;
 
 class H5Recorder {
     private _socket;
@@ -31,7 +33,7 @@ class H5Recorder {
                 myNavigator.webkitGetUserMedia ||
                 myNavigator.mozGetUserMedia ||
                 myNavigator.msGetUserMedia;
-            myNavigator.getUserMedia({ video: true}, function (stream) {
+            myNavigator.getUserMedia({ video: true }, function (stream) {
                 ins._video.src = window.URL.createObjectURL(stream);
                 ins._videoStream = stream;
             }, err => {
@@ -82,17 +84,17 @@ class H5Recorder {
         let ts = +new Date() - this._ts;
         let sec = Math.floor(ts / 1000 / this._dur);
         let tick = Math.floor((ts - this._dur * sec * 1000) * this._fps / 1000);
-        if(sec > this._sec){
+        if (sec > this._sec) {
             this._sec = sec;
+            this._upload();
             this._seq++;
         }
         if (tick > this._tick || (tick == 0 && this._tick > 0)) {
-            if(tick == 0) this._subseq = 0;
+            if (tick == 0) this._subseq = 0;
             else this._subseq++;
             this._tick = tick;
-            let fn = this._seq + '_' + this._subseq + '.webp';
-            this._frameQueue.push([fn, this._canvas.toDataURL('image/webp'), this._seq]);
-            this._upload();
+            let fn = this._seq + '_' + this._padLeft(this._subseq) + '.webp';
+            this._frameQueue.push([fn, this._canvas.toDataURL('image/webp').substr(23), this._seq]);
         }
 
         requestAnimationFrame(this.draw.bind(this));
@@ -108,31 +110,40 @@ class H5Recorder {
         if (this._frameQueue.length == 0) return;
 
         this._isUploading = true;
-        let frame = this._frameQueue.splice(0, 1)[0];
-        let seq = frame[2];
+        let seq = this._frameQueue[0][2];
+        let frames = this._frameQueue.filter(f => f[2] == seq);
+        this._frameQueue.splice(0, frames.length);
 
-        $.post('live/uploadFrame', {
+        $.post('live/uploadFrames', {
             liveId: this._liveId,
-            name: frame[0],
-            data: frame[1].substr(23)
+            seq: seq,
+            frames: frames
         }, resp => {
             this._isUploading = false;
-            if (this._curSeq != seq) {
-                // all frames of the same seq sent, notify server to transcode
-                let seqToHandle = this._curSeq;
-                $.post('live/transcodeframe', {
-                    liveId: this._liveId,
-                    seq: seqToHandle
-                }, ()=>{
-                    console.log('transcoded ' + seqToHandle);
-                    if(!_player){
-                        play(this._liveId + '/live_v.mpd')
-                    }
-                });
-                this._curSeq = seq;
+            if (!_player) {
+                play(this._liveId + '/live_v.mpd')
             }
+            // if (this._curSeq != seq) {
+            //     // all frames of the same seq sent, notify server to transcode
+            //     let seqToHandle = this._curSeq;
+            //     $.post('live/transcodeframe', {
+            //         liveId: this._liveId,
+            //         seq: seqToHandle
+            //     }, ()=>{
+            //         console.log('transcoded ' + seqToHandle);
+            //         if(!_player){
+            //             play(this._liveId + '/live_v.mpd')
+            //         }
+            //     });
+            //     this._curSeq = seq;
+            // }
         });
 
+    }
+
+    private _padLeft(s:any){
+        let o = new Array(4).join('0') + s.toString();
+        return o.substr(o.length - 3, 3);
     }
 
     private _initNetwork() {

@@ -21,6 +21,8 @@ export default class Live4Web extends events.EventEmitter {
     private _tsBuffers: Array<string>;
 
     private _optime: number;
+    private _isTranscoding: boolean = false;
+    private _transSeqs = [];
 
     curGroup: number;
     workingPath: string = null;
@@ -57,17 +59,25 @@ export default class Live4Web extends events.EventEmitter {
             live.sourcePath = null;
             live.sourceName = null;
             live.initTime = req.reqTime;
-
+            live.on('reqTranscode', () => live.transcode());
             Live4Web._lives.push(live);
+
             fs.mkdirSync(live.workingPath);
             resolve({
                 liveId: live.liveId
             });
             fs.watch(live.workingPath, (evt, fn) => {
+                if (evt == 'rename' && (fn.endsWith('webp'))) {
+                }
                 if (evt == 'rename' && (fn.endsWith('mp4') || fn.endsWith('m4s'))) {
-                    console.log(ServerUtils.getShortTime() + ' ' + fn + ' rename');
+                    if (fn == 'v_1.m4s') {
+                        live.liveTime = new Date();
+                    }
+                    //console.log(ServerUtils.getShortTime() + ' ' + fn + ' rename');
                 }
             });
+
+            console.log('init time: ' + ServerUtils.getShortTime(live.initTime));
         });
     }
 
@@ -91,18 +101,25 @@ export default class Live4Web extends events.EventEmitter {
         });
     }
 
-    static uploadFrame(liveId: string, req) {
+    static uploadFrames(liveId: string, seq: number, frames: Array<any>) {
+        console.log(`${ServerUtils.getShortTime()} Uploading frames ${seq}`)
         return new Promise(resolve => {
             let live = this._lives.find(l => l.liveId == liveId);
-            let ws = fs.createWriteStream(path.join(live.workingPath, req.name));
-            ws.end(new Buffer(req.data, 'base64'), resolve);
+            let counter = frames.length;
+            //console.log(frames.map(f => f[0]).join(','));
+            frames.forEach(f => {
+                fs.createWriteStream(path.join(live.workingPath, f[0]))
+                    .on('close', () => {
+                        if ((--counter) == 0) {
+                            live._transSeqs.push(seq);
+                            live.emit('reqTranscode');
+                            console.log(`${ServerUtils.getShortTime()} Uploaded frames ${seq}`)
+                            resolve();
+                        }
+                    })
+                    .end(new Buffer(f[1], 'base64'));
+            });
         });
-    }
-
-    static transcodeFrame(liveId: string, req) {
-        let live = this._lives.find(l => l.liveId == liveId);
-        live.curGroup = req.seq;
-        return live._transcode();
     }
 
     getLiveStatus() {
@@ -112,33 +129,64 @@ export default class Live4Web extends events.EventEmitter {
         };
     }
 
-    private _transcode() {
+    async transcode() {
         let ins = this;
-        if (!ins.liveTime) {
-            ins.liveTime = new Date();
-            console.log(`live time: ${ServerUtils.getShortTime(ins.liveTime)}`);
+        if (this._transSeqs.length == 0 || this._isTranscoding) return;
+        this._isTranscoding = true;
+        let seq = this._transSeqs.shift();
+        this.curGroup = seq;
+        if (!this.liveTime) {
+            this.liveTime = new Date();
+            console.log(`live time: ${ServerUtils.getShortTime(this.liveTime)}`);
         }
-        ins._optime = +new Date();
-        return new Promise(resolve => {
+        this._optime = +new Date();
+        let latestTime = +this.liveTime + this.curGroup * 1000;
+        if (this._optime > latestTime) {
+            console.warn(`${ServerUtils.getShortTime()} Transcode delayed. Group: ${this.curGroup}, Difference:${(this._optime - latestTime)}ms`)
+        }
+
+        console.log(`${ServerUtils.getShortTime()} Transcoding frames ${seq}`)        
+        let retry = 2;
+        while (retry-- > 0) {
+            try {
+                await this._transcode(seq);
+                break;
+            } catch (err) {
+                console.warn(`generate group failed, seq: ${seq}, remains:${retry}`);
+            }
+        }
+        this._package(seq);
+        console.log(`${ServerUtils.getShortTime()} Transcoded frames ${seq}`)        
+        this._isTranscoding = false;
+        this.transcode();
+    }
+
+    private _transcode(seq) {
+        return new Promise((resolve, reject) => {
+            let ins = this;
             let opts = ins._ffmpeg_trans.split(' ')
-            opts[opts.indexOf('${input}')] = ins.curGroup + '_%d.webp';
-            opts[opts.indexOf('${outputPattern}')] = ins.curGroup + '.mp4';
+            opts[opts.indexOf('${input}')] = seq + '_%03d.webp';
+            opts[opts.indexOf('${outputPattern}')] = seq + '.mp4';
             //console.log(`FFMPEG ${opts.join(' ')}`);
 
             ins._ffmpeg_ps = cp.spawn(ins._ffmpeg, opts, { cwd: ins.workingPath });
             ins._ffmpeg_ps.on('exit', () => {
-                resolve();
+                let f = fs.statSync(path.join(ins.workingPath, '' + seq + '.mp4'));
+                if (f.size == 0)
+                    reject();
+                else {
+                    resolve();
+                }
             });
-        }).then(ins._package.bind(this));
+        });
     }
 
-    private _package() {
+    private _package(seq) {
         let ins = this;
-        let group = this.curGroup;
 
         return new Promise(resolve => {
             // video
-            let fn = group + '.mp4';
+            let fn = seq + '.mp4';
             let opts_pkg_v = ins._mp4box_pkg.split(' ');
             opts_pkg_v[opts_pkg_v.indexOf('${dashCtx}')] = 'dash-live-v.txt';
             opts_pkg_v[opts_pkg_v.indexOf('${dashFile}')] = 'live_v';
@@ -147,14 +195,11 @@ export default class Live4Web extends events.EventEmitter {
             //console.log(`MP4Box ${opts_pkg_v.join(' ')}`);
             cp.spawn(ins._mp4box, opts_pkg_v, { cwd: ins.workingPath })
                 .on('exit', () => {
-                    console.log(`Group ${group} using ${+new Date - this._optime}ms`);
-                    let f = ins.workingPath + '/v_' + group + '.m4s';
-                    fs.exists(f, exists => {
-                        console.log(`Group ${group} ${exists ? "" : "NOT"} exists`);
-                    });
+                    //console.log(`${ServerUtils.getShortTime()} Seq ${seq} using ${+new Date - this._optime}ms`);
+                    let f = ins.workingPath + '/v_' + seq + '.m4s';
                     fs.readdir(ins.workingPath, (err, files) => {
                         files.forEach(f => {
-                            if (f.startsWith(group + '_'))
+                            if (f.startsWith(seq + '_'))
                                 fs.unlink(path.join(ins.workingPath, f), err => {
                                     if (err) console.log(err);
                                 });

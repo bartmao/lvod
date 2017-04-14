@@ -34,6 +34,6 @@ export default class LiveService extends ServiceBase {
     }
 
     uploadFrames(req){
-        return Live4Web.uploadFrames(req.liveId, req.seq, req.frames);
+        return Live4Web.uploadFrames(req.liveId, req.seq, req.frames, new Date(req.ts));
     }
 }

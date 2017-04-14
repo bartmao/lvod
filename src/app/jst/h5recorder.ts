@@ -41,7 +41,7 @@ class H5Recorder {
             });
         }
 
-        //this._initNetwork();
+        this._initNetwork();
     }
 
     start() {
@@ -106,6 +106,7 @@ class H5Recorder {
     }
 
     private _upload() {
+        let ins = this;
         if (this._isUploading) return;
         if (this._frameQueue.length == 0) return;
 
@@ -114,30 +115,31 @@ class H5Recorder {
         let frames = this._frameQueue.filter(f => f[2] == seq);
         this._frameQueue.splice(0, frames.length);
 
-        $.post('live/uploadFrames', {
+        console.log('call service!!!')
+        this._socket.emit('liveservice', {
             liveId: this._liveId,
             seq: seq,
-            frames: frames
-        }, resp => {
-            this._isUploading = false;
-            if (!_player) {
-                play(this._liveId + '/live_v.mpd')
-            }
-            // if (this._curSeq != seq) {
-            //     // all frames of the same seq sent, notify server to transcode
-            //     let seqToHandle = this._curSeq;
-            //     $.post('live/transcodeframe', {
-            //         liveId: this._liveId,
-            //         seq: seqToHandle
-            //     }, ()=>{
-            //         console.log('transcoded ' + seqToHandle);
-            //         if(!_player){
-            //             play(this._liveId + '/live_v.mpd')
-            //         }
-            //     });
-            //     this._curSeq = seq;
-            // }
+            frames: frames,
+            ts: new Date(),
+            op: 'uploadFrames'
         });
+        
+        setTimeout(function() {
+            //ins._isUploading = false;
+            if (!_player) {
+                play(ins._liveId + '/live_v.mpd')
+            }         
+        }, 5000);
+        // $.post('live/uploadFrames', {
+        //     liveId: this._liveId,
+        //     seq: seq,
+        //     frames: frames
+        // }, resp => {
+        //     this._isUploading = false;
+        //     if (!_player) {
+        //         play(this._liveId + '/live_v.mpd')
+        //     }
+        // });
 
     }
 
@@ -150,7 +152,7 @@ class H5Recorder {
         let ins = this;
         ins._socket = io('http://localhost:8000');
         ins._socket.on('service', function (data) {
-            console.log(data);
+            ins._isUploading = false;
         });
     }
 

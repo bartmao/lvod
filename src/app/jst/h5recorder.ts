@@ -115,7 +115,7 @@ class H5Recorder {
         let frames = this._frameQueue.filter(f => f[2] == seq);
         this._frameQueue.splice(0, frames.length);
 
-        console.log('call service!!!')
+        console.log(new Date() + ' uploading...')
         this._socket.emit('liveservice', {
             liveId: this._liveId,
             seq: seq,

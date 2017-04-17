@@ -12,6 +12,7 @@ export default class ServiceUtils {
     }
 
     static padLeft(s: any, len: number) {
+        if(s == null) s = '';
         s = new Array(len + 1).join('0') + s.toString();
         return s.substr(s.length - len, len);
     }

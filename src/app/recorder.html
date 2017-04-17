@@ -40,14 +40,14 @@
                                    _player.seek
                                }
                                function play(url) {
-                                   if (!_player)
-                                       _player = dashjs.MediaPlayer().create();
-                                   _player.initialize($("#video-sample")[0], null, true);
-                                   _player.attachSource(url);
-                                   _player.on(dashjs.MediaPlayer.events.ERROR, function(p,q,g){
-                                       console.log('FRAGMENT_LOADING_COMPLETED');
-                                   });
-                                   _player.setLiveDelayFragmentCount(5);
+                                //    if (!_player)
+                                //        _player = dashjs.MediaPlayer().create();
+                                //    _player.initialize($("#video-sample")[0], null, true);
+                                //    _player.attachSource(url);
+                                //    _player.on(dashjs.MediaPlayer.events.ERROR, function(p,q,g){
+                                //        console.log('FRAGMENT_LOADING_COMPLETED');
+                                //    });
+                                //    _player.setLiveDelayFragmentCount(5);
                                }
     </script>
 </body>

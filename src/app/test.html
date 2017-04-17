@@ -6,14 +6,15 @@
 </head>
 
 <body>
+    <input id='liveid' type='text' />
     <button id='play' onclick="play()">play</button><br/>
     <video id="video-sample" data-dashjs-player controls="true" width="90%"></video>
-
     <script>
         var _player;
 
         function play() {
-            url = 'http://localhost:8000/c737652c-fac4-4420-b7c8-b889fe25043c/live_v.1.mpd';
+            liveId = $('#liveid').val();
+            url = 'http://localhost:8000/' + liveId + '/live_v.mpd';
             if (!_player)
                 _player = dashjs.MediaPlayer().create();
             _player.initialize($("#video-sample")[0], null, true);

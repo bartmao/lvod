@@ -1,0 +1,42 @@
+<html>
+
+<head>
+    <script src="js/jquery-2.0.0.min.js"></script>
+    <script src="js/socket.io.min.js"></script>
+</head>
+
+<body>
+    <button id='live' onclick="start()">play</button><br/>
+    <canvas width="200" height="200"></canvas>
+    <div></div>
+    <script>
+        var c = document.getElementsByTagName('canvas')[0];
+        var ctx = c.getContext('2d');
+        function start() {
+            write('start');
+            this._socket = io.connect('http://localhost:8000');
+            this._socket.on('newsocket', function(data){
+                console.log(data);
+            });
+            this._socket.on('receiveFrames', function (group) {
+                write('get msg');
+                group.frames.forEach(function (element) {
+                    setTimeout(function () {
+                        var image = new Image();
+                        image.src = element.data;
+                        ctx.drawImage(image, 0, 0);
+                    }, 0);
+                }, this);
+                console.log(group.frames);
+                ctx.drawImage(group.frames, 0, 0);
+            });
+        }
+        function write(msg) {
+            var div = document.getElementsByTagName('div')[0];
+            if (div.innerHTML.length > 1000) div.innerHTML = '';
+            div.innerHTML = new Date() + msg + '<br/>' + div.innerHTML;
+        }
+    </script>
+</body>
+
+</html>

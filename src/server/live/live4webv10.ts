@@ -8,8 +8,8 @@ import ServerUtils from '../serverutils';
 import ResourceManager from '../resourcemanager';
 const liveConfig = require('./liveconfig.json')
 
-export default class Live4Web extends events.EventEmitter {
-    static _lives: Array<Live4Web> = [];
+export default class Live4WebV10 extends events.EventEmitter {
+    static _lives: Array<Live4WebV10> = [];
 
     private _ffmpeg_ps: cp.ChildProcess;
 
@@ -54,7 +54,7 @@ export default class Live4Web extends events.EventEmitter {
 
     static startLive(req: LiveRequest) {
         return new Promise<any>((resolve, reject) => {
-            let live = new Live4Web();
+            let live = new Live4WebV10();
             live.source = req.source;
             live.sourceType = req.type;
             live.sourceId = 0;
@@ -62,27 +62,12 @@ export default class Live4Web extends events.EventEmitter {
             live.sourceName = null;
             live.initTime = req.reqTime;
             live.on('reqTranscode', () => live.transcode());
-            Live4Web._lives.push(live);
+            Live4WebV10._lives.push(live);
 
             fs.mkdirSync(live.workingPath);
             resolve({
                 liveId: live.liveId
             });
-            // fs.watch(live.workingPath, (evt, fn) => {
-            //     if (evt == 'rename' && fn == 'live_v.mpd') {
-            //         if (fs.existsSync(path.join(live.workingPath, 'live_v.mpd')))
-            //             fs.createReadStream(path.join(live.workingPath, 'live_v.mpd'))
-            //                 .pipe(fs.createWriteStream('/home/bartmao/projects/lvod/resources/live_v.mpd'));
-            //         //console.log(ServerUtils.getShortTime() + ' ' + fn + ' rename');
-            //     }
-            //     if (evt == 'rename' && (fn.endsWith('mp4') || fn.endsWith('m4s'))) {
-            //         if (fn == 'v_1.m4s') {
-            //             live.liveTime = new Date();
-            //             live._startAccuracyDaemon();
-            //         }
-            //         //console.log(ServerUtils.getShortTime() + ' ' + fn + ' rename');
-            //     }
-            // });
 
             console.log('init time: ' + ServerUtils.getShortTime(live.initTime));
         });
@@ -90,12 +75,12 @@ export default class Live4Web extends events.EventEmitter {
 
     static stopLive(liveId: string) {
         return new Promise<any>(resolve => {
-            let liveIdx = Live4Web._lives.findIndex(l => l.liveId == liveId);
+            let liveIdx = Live4WebV10._lives.findIndex(l => l.liveId == liveId);
             if (liveIdx > -1) {
-                let live = Live4Web._lives[liveIdx];
+                let live = Live4WebV10._lives[liveIdx];
                 if (live._ffmpeg_ps)
                     live._ffmpeg_ps.kill();
-                Live4Web._lives.splice(liveIdx, 1);
+                Live4WebV10._lives.splice(liveIdx, 1);
                 live.emit('stop', live.liveId);
                 resolve();
             }
@@ -103,7 +88,7 @@ export default class Live4Web extends events.EventEmitter {
     }
 
     static getLivings() {
-        return new Promise<Array<Live4Web>>(resolve => {
+        return new Promise<Array<Live4WebV10>>(resolve => {
             resolve(this._lives);
         });
     }
@@ -255,7 +240,7 @@ export default class Live4Web extends events.EventEmitter {
                     group.packagedTime = new Date();
                     if (!ins.liveTime) {
                         ins.liveTime = new Date();
-                        ins._startAccuracyDaemon();
+                        //ins._startAccuracyDaemon();
                     }
 
                     ins.printGroup(group);

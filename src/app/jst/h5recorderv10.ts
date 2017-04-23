@@ -11,7 +11,7 @@ class H5RecorderV10 {
     private _isRunning = false;
 
     private _ts = 0;
-    private _fps = 15;
+    private _fps = 10;
     private _dur = 1;
     private _sec = 0;
     private _tick = -1;
@@ -69,8 +69,8 @@ class H5RecorderV10 {
 
         let ins = this;
         if (!this._mockup) {
-            var ctx = this._canvas.getContext('2d');
-            ctx.drawImage(this._video, 0, 0, this._canvas.width, this._canvas.height);
+            // var ctx = this._canvas.getContext('2d');
+            // ctx.drawImage(this._video, 0, 0, this._canvas.width, this._canvas.height);
         }
         else {
             this._getClock();
@@ -88,11 +88,14 @@ class H5RecorderV10 {
             if (tick == 0) this._subseq = 0;
             else this._subseq++;
             this._tick = tick;
+            var ctx = this._canvas.getContext('2d');
+            console.log(new Date + 'draw image');
+            ctx.drawImage(this._video, 0, 0, this._canvas.width, this._canvas.height);
             this._frameQueue.push({
                 seq: this._seq,
                 subseq: this._subseq,
                 ts: new Date(),
-                data: this._canvas.toDataURL('image/png')
+                data: this._canvas.toDataURL('image/webp')
             });
         }
 
@@ -124,7 +127,7 @@ class H5RecorderV10 {
 
     private _initNetwork() {
         let ins = this;
-        ins._socket = io('http://localhost:8000');
+        ins._socket = io('http://192.168.1.106:8000');
         ins._socket.on('receiveFrames', function (data) {
             console.log(data);
         });

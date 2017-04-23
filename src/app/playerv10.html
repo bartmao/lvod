@@ -7,32 +7,59 @@
 
 <body>
     <button id='live' onclick="start()">play</button><br/>
+    <button id='click' onclick="update()">click</button><br/>
     <canvas width="200" height="200"></canvas>
-    <div></div>
+    <img width="200" height="200" src=''></img>
+    <div id='info'></div>
+    <div id='output'></div>
     <script>
         var c = document.getElementsByTagName('canvas')[0];
         var ctx = c.getContext('2d');
+        var timeShift = 1000;
+        var frames = [];
+        var startTime;
+        var diff;
+        var size = 0;
+
         function start() {
             write('start');
-            this._socket = io.connect('http://localhost:8000');
-            this._socket.on('newsocket', function(data){
-                console.log(data);
-            });
+            update();
+            this._socket = io.connect('http://192.168.1.106:8000');
             this._socket.on('receiveFrames', function (group) {
-                write('get msg');
-                group.frames.forEach(function (element) {
-                    setTimeout(function () {
-                        var image = new Image();
-                        image.src = element.data;
-                        ctx.drawImage(image, 0, 0);
-                    }, 0);
-                }, this);
+                group.frames.reduce(function (acc, f) {
+                    size += f.data.length;
+                });
+                document.getElementById('info').innerHTML = size;
+                frames = frames.concat(group.frames);
                 console.log(group.frames);
-                ctx.drawImage(group.frames, 0, 0);
+                write('new frames');
             });
         }
+
+        function update() {
+            if (frames.length > 0) {
+                var ts = +new Date();
+                var frame = frames[0];
+                if (!startTime) {
+                    startTime = new Date(frame.ts);
+                    diff = ts - startTime;
+                }
+
+                var mydiff = ts - diff - timeShift - new Date(frame.ts);
+                if (ts - diff - timeShift >= new Date(frame.ts)) {
+                    console.log(mydiff + 'ms');
+                    var image = new Image();
+                    image.src = frame.data;
+                    image.onload = () => ctx.drawImage(image, 0, 0);
+
+                    frames.shift();
+                }
+            }
+            requestAnimationFrame(this.update.bind(this));
+        }
+
         function write(msg) {
-            var div = document.getElementsByTagName('div')[0];
+            var div = document.getElementById('output');
             if (div.innerHTML.length > 1000) div.innerHTML = '';
             div.innerHTML = new Date() + msg + '<br/>' + div.innerHTML;
         }

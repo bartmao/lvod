@@ -33,7 +33,7 @@ class H5RecorderV10 {
                 myNavigator.webkitGetUserMedia ||
                 myNavigator.mozGetUserMedia ||
                 myNavigator.msGetUserMedia;
-            myNavigator.getUserMedia({ video: true }, function (stream) {
+            myNavigator.getUserMedia({ video: true, audio: true }, function (stream) {
                 ins._video.src = window.URL.createObjectURL(stream);
                 ins._videoStream = stream;
             }, err => {
@@ -69,8 +69,8 @@ class H5RecorderV10 {
 
         let ins = this;
         if (!this._mockup) {
-            // var ctx = this._canvas.getContext('2d');
-            // ctx.drawImage(this._video, 0, 0, this._canvas.width, this._canvas.height);
+            var ctx = this._canvas.getContext('2d');
+            ctx.drawImage(this._video, 0, 0, this._canvas.width, this._canvas.height);
         }
         else {
             this._getClock();
@@ -88,9 +88,6 @@ class H5RecorderV10 {
             if (tick == 0) this._subseq = 0;
             else this._subseq++;
             this._tick = tick;
-            var ctx = this._canvas.getContext('2d');
-            console.log(new Date + 'draw image');
-            ctx.drawImage(this._video, 0, 0, this._canvas.width, this._canvas.height);
             this._frameQueue.push({
                 seq: this._seq,
                 subseq: this._subseq,
@@ -108,7 +105,6 @@ class H5RecorderV10 {
         if (this._frameQueue.length == 0) return;
 
         this._isUploading = true;
-        console.log('distribFrames '+ this._frameQueue.length);
         this._socket.emit('liveservice', {
             liveId: this._liveId,
             frames: this._frameQueue,
@@ -127,7 +123,7 @@ class H5RecorderV10 {
 
     private _initNetwork() {
         let ins = this;
-        ins._socket = io('http://192.168.1.106:8000');
+        ins._socket = io('http://localhost:8000');
         ins._socket.on('receiveFrames', function (data) {
             console.log(data);
         });

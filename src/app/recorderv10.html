@@ -4,15 +4,14 @@
     <script src="js/jquery-2.0.0.min.js"></script>
     <script src="js/socket.io.min.js"></script>
     <script src="jst/h5recorderv10.js"></script>
-    <script src="http://cdn.dashjs.org/latest/dash.all.debug.js"></script>
 </head>
 
 <body>
     <button id='live' onclick="start()">live</button><br/>
     <button id='mock' onclick="mock()">mock</button><br/>
     <button id='stop' onclick="stop()">stop</button><br/>
-    <video id='v0' autoplay width="200" height="200"></video>
-    <canvas visible width="200" height="200"></canvas>
+    <video id='v0' autoplay width="640" height="480"></video>
+    <canvas visible width="640" height="480"></canvas>
     <video id="video-sample" data-dashjs-player controls="true" width="90%"></video>
 
     <script>

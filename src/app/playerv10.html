@@ -8,61 +8,67 @@
 <body>
     <button id='live' onclick="start()">play</button><br/>
     <button id='click' onclick="update()">click</button><br/>
-    <canvas width="200" height="200"></canvas>
-    <img width="200" height="200" src=''></img>
+    <canvas width="640" height="480"></canvas>
     <div id='info'></div>
     <div id='output'></div>
     <script>
-        var c = document.getElementsByTagName('canvas')[0];
-        var ctx = c.getContext('2d');
-        var timeShift = 1000;
-        var frames = [];
-        var startTime;
-        var diff;
-        var size = 0;
+                                var c = document.getElementsByTagName('canvas')[0];
+                                var ctx = c.getContext('2d');
+                                var timeShift = 1000;
+                                var frames = [];
+                                var startTime;
+                                var diff;
+                                var size = 0;
+                                var image = new Image();
 
-        function start() {
-            write('start');
-            update();
-            this._socket = io.connect('http://192.168.1.106:8000');
-            this._socket.on('receiveFrames', function (group) {
-                group.frames.reduce(function (acc, f) {
-                    size += f.data.length;
-                });
-                document.getElementById('info').innerHTML = size;
-                frames = frames.concat(group.frames);
-                console.log(group.frames);
-                write('new frames');
-            });
-        }
+                                function start() {
+                                    write('start');
+                                    update();
+                                    this._socket = io.connect('http://localhost:8000');
+                                    this._socket.on('receiveFrames', function (group) {
+                                        group.frames.reduce(function (acc, f) {
+                                            size += f.data.length;
+                                        });
+                                        document.getElementById('info').innerHTML = size;
+                                        frames = frames.concat(group.frames);
+                                        console.log(group.frames);
+                                        write('new frames');
+                                    });
+                                }
 
-        function update() {
-            if (frames.length > 0) {
-                var ts = +new Date();
-                var frame = frames[0];
-                if (!startTime) {
-                    startTime = new Date(frame.ts);
-                    diff = ts - startTime;
-                }
+                                function update() {
+                                    if (frames.length > 0) {
+                                        var ts = +new Date();
+                                        var frame = frames[0];
+                                        if (!startTime) {
+                                            startTime = new Date(frame.ts);
+                                            diff = ts - startTime;
+                                        }
 
-                var mydiff = ts - diff - timeShift - new Date(frame.ts);
-                if (ts - diff - timeShift >= new Date(frame.ts)) {
-                    console.log(mydiff + 'ms');
-                    var image = new Image();
-                    image.src = frame.data;
-                    image.onload = () => ctx.drawImage(image, 0, 0);
+                                        var mydiff = ts - diff - timeShift - new Date(frame.ts);
+                                        // drop frames
+                                        if (mydiff >= 1000) {
+                                            frames.shift();
+                                        }
+                                        // frames to display
+                                        else if (mydiff >= 0) {
+                                            console.log(mydiff + 'ms');
+                                            image.src = frame.data;
+                                            image.onload = () => {
+                                                ctx.drawImage(image, 0, 0);
+                                            }
 
-                    frames.shift();
-                }
-            }
-            requestAnimationFrame(this.update.bind(this));
-        }
+                                            frames.shift();
+                                        }
+                                    }
+                                    requestAnimationFrame(this.update.bind(this));
+                                }
 
-        function write(msg) {
-            var div = document.getElementById('output');
-            if (div.innerHTML.length > 1000) div.innerHTML = '';
-            div.innerHTML = new Date() + msg + '<br/>' + div.innerHTML;
-        }
+                                function write(msg) {
+                                    var div = document.getElementById('output');
+                                    if (div.innerHTML.length > 1000) div.innerHTML = '';
+                                    div.innerHTML = new Date() + msg + '<br/>' + div.innerHTML;
+                                }
     </script>
 </body>
 

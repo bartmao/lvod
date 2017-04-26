@@ -23,6 +23,7 @@ class H5RecorderV10 {
     private _liveId: string;
 
     private _frameQueue = [];
+    private _audioQueue = [];
     private _curSeq = 0;
     private _isUploading = false;
 
@@ -36,6 +37,18 @@ class H5RecorderV10 {
             myNavigator.getUserMedia({ video: true, audio: true }, function (stream) {
                 ins._video.src = window.URL.createObjectURL(stream);
                 ins._videoStream = stream;
+
+                let AudioContext = myWindow.AudioContext || myWindow.webkitAudioContext;
+                let ctx = new AudioContext();
+                let source = ctx.createMediaStreamSource(stream);
+                let processor = (ctx.createScriptProcessor || ctx.createJavaScriptNode).call(ctx, 1024 * 4, 1, 1);
+                processor.onaudioprocess = e => {
+                    let inputBuffer = e.inputBuffer;
+                    let data = inputBuffer.getChannelData(0);
+                    ins._audioQueue.push(data);
+                };
+                source.connect(processor);
+                processor.connect(ctx.destination);
             }, err => {
                 console.log(err);
             });
@@ -105,17 +118,77 @@ class H5RecorderV10 {
         if (this._frameQueue.length == 0) return;
 
         this._isUploading = true;
+        let audio = this.encodeWAV(this._audioQueue);
         this._socket.emit('liveservice', {
             liveId: this._liveId,
             frames: this._frameQueue,
+            audio: audio,
             ts: new Date(),
             op: 'distribFrames',
             ver: '10'
         });
         this._isUploading = false;
         this._frameQueue = [];
+        this._audioQueue = [];
     }
 
+    private encodeWAV(samples) {
+        let sampleLength = 0;
+        samples.reduce((acc, cur) => sampleLength += cur.length, 0);
+        let newSamples = new Float32Array(sampleLength);
+        let newOffset = 0;
+        for (let i = 0; i < samples.length; ++i) {
+            newSamples.set(samples[i], newOffset);
+            newOffset += samples[i].length;
+        }
+        samples = newSamples;
+
+        var arr = new ArrayBuffer(44 + sampleLength * 2);
+        var view = new DataView(arr);
+
+        /* RIFF identifier */
+        this.writeString(view, 0, 'RIFF');
+        /* RIFF chunk length */
+        view.setUint32(4, 36 + sampleLength * 2, true);
+        /* RIFF type */
+        this.writeString(view, 8, 'WAVE');
+        /* format chunk identifier */
+        this.writeString(view, 12, 'fmt ');
+        /* format chunk length */
+        view.setUint32(16, 16, true);
+        /* sample format (raw) */
+        view.setUint16(20, 1, true);
+        /* channel count */
+        view.setUint16(22, 1, true);
+        /* sample rate */
+        view.setUint32(24, 48000, true);
+        /* byte rate (sample rate * block align) */
+        view.setUint32(28, 48000 * 2, true);
+        /* block align (channel count * bytes per sample) */
+        view.setUint16(32, 48000 * 2, true);
+        /* bits per sample */
+        view.setUint16(34, 16, true);
+        /* data chunk identifier */
+        this.writeString(view, 36, 'data');
+        /* data chunk length */
+        view.setUint32(40, sampleLength * 2, true);
+
+        this.floatTo16BitPCM(view, 44, samples);
+        return arr;
+    }
+
+    private floatTo16BitPCM(view, offset, input) {
+        for (var i = 0; i < input.length; i++ , offset += 2) {
+            var s = Math.max(-1, Math.min(1, input[i]));
+            view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        }
+    }
+
+    private writeString(view, offset, string) {
+        for (var i = 0; i < string.length; i++) {
+            view.setUint8(offset + i, string.charCodeAt(i));
+        }
+    }
     private _padLeft(s: any) {
         let o = new Array(4).join('0') + s.toString();
         return o.substr(o.length - 3, 3);

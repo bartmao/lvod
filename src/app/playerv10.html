@@ -7,7 +7,7 @@
 
 <body>
     <button id='live' onclick="start()">play</button><br/>
-    <button id='click' onclick="update()">click</button><br/>
+    <button id='click' onclick="decode()">decode</button><br/>
     <canvas width="640" height="480"></canvas>
     <div id='info'></div>
     <div id='output'></div>
@@ -16,23 +16,25 @@
                                 var ctx = c.getContext('2d');
                                 var timeShift = 1000;
                                 var frames = [];
+                                var audios = [];
                                 var startTime;
                                 var diff;
                                 var size = 0;
                                 var image = new Image();
+                                var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
                                 function start() {
                                     write('start');
                                     update();
                                     this._socket = io.connect('http://localhost:8000');
                                     this._socket.on('receiveFrames', function (group) {
+                                        audios.push(group.audio);
+
                                         group.frames.reduce(function (acc, f) {
                                             size += f.data.length;
                                         });
                                         document.getElementById('info').innerHTML = size;
                                         frames = frames.concat(group.frames);
-                                        console.log(group.frames);
-                                        write('new frames');
                                     });
                                 }
 
@@ -62,6 +64,18 @@
                                         }
                                     }
                                     requestAnimationFrame(this.update.bind(this));
+                                }
+
+                                function decode() {
+                                    let audio = audios.shift();
+                                    if (audio) {
+                                        var source = audioCtx.createBufferSource();
+                                        source.connect(audioCtx.destination);
+                                        audioCtx.decodeAudioData(audio, function (buffer) {
+                                            source.buffer = buffer;
+                                        }, e => console.error(e));
+                                    }
+
                                 }
 
                                 function write(msg) {

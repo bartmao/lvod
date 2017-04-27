@@ -118,7 +118,7 @@ class H5RecorderV10 {
         if (this._frameQueue.length == 0) return;
 
         this._isUploading = true;
-        let audio = this.encodeWAV(this._audioQueue);
+        let audio = this._arrayBufferToBase64(this.encodeWAV(this._audioQueue));
         this._socket.emit('liveservice', {
             liveId: this._liveId,
             frames: this._frameQueue,
@@ -127,9 +127,24 @@ class H5RecorderV10 {
             op: 'distribFrames',
             ver: '10'
         });
+        let videoSize = 0;
+        this._frameQueue.reduce((acc, cur) => {
+            videoSize += cur.data.length;
+        }, 0);
+        console.log('Video ' + videoSize / 1024 + 'KB/s' + ', Audio ' + audio.length / 1024 + 'KB/s')
         this._isUploading = false;
         this._frameQueue = [];
         this._audioQueue = [];
+    }
+
+    private _arrayBufferToBase64(buffer) {
+        var binary = '';
+        var bytes = new Uint8Array(buffer);
+        var len = bytes.byteLength;
+        for (var i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary);
     }
 
     private encodeWAV(samples) {

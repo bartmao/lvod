@@ -50,7 +50,6 @@ app.all('/vod/:op', (req, resp) => {
 server.listen(8000);
 
 io.on('connection', socket => {
-    socket.broadcast.emit('newsocket', {ts:new Date});
     socket.on('liveservice', req => {
         if(req.ver == '10'){
             socket.broadcast.emit('receiveFrames', req);

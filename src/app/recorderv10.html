@@ -10,29 +10,46 @@
     <button id='live' onclick="start()">live</button><br/>
     <button id='mock' onclick="mock()">mock</button><br/>
     <button id='stop' onclick="stop()">stop</button><br/>
-    <audio id='v1' src='3.5.wav' autoplay></audio>
+    <button id='stop' onclick="playaudio()">playaudio</button><br/>
+    <audio id='v1' src='wk.wav' autoplay></audio>
     <video id='v0' autoplay width="640" height="480"></video>
     <canvas visible width="640" height="480"></canvas>
     <video id="video-sample" data-dashjs-player controls="true" width="90%"></video>
 
     <script>
-                               var r, _player;
-                               var v = document.getElementById('v0');
-                               var c = document.getElementsByTagName('canvas')[0];
+        var r, _player;
+        var v = document.getElementById('v0');
+        var c = document.getElementsByTagName('canvas')[0];
 
-                               function start() {
-                                   r = new H5RecorderV10(v, c);
-                                   r.start();
-                               }
+        function start() {
+            r = new H5RecorderV10(v, c);
+            r.start();
+        }
 
-                               function mock() {
-                                   r = new H5RecorderV10(v, c, true);
-                                   r.start();
-                               }
+        function mock() {
+            r = new H5RecorderV10(v, c, true);
+            r.start();
+        }
 
-                               function stop() {
-                                   r.stop();
-                               }
+        function stop() {
+            r.stop();
+        }
+
+        var d = document.getElementById('v1');
+        var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        var s = audioCtx.createMediaElementSource(d);
+        //s.connect(audioCtx.destination);
+        //s.start(0);
+
+        function playaudio() {
+            let processor = (audioCtx.createScriptProcessor || audioCtx.createJavaScriptNode).call(audioCtx, 1024 * 4, 1, 1);
+            processor.onaudioprocess = e => {
+                let inputBuffer = e.inputBuffer;
+                let data = inputBuffer.getChannelData(0);
+                console.log(data);
+            };
+            s.connect(processor).connect(audioCtx.destination);
+        }
     </script>
 </body>
 

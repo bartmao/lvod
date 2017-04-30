@@ -11,8 +11,8 @@ class H5RecorderV10 {
     private _isRunning = false;
 
     private _ts = 0;
-    private _fps = 10;
-    private _dur = 1;
+    private _fps = 2;
+    private _dur = 3;
     private _sec = 0;
     private _tick = -1;
     private _seq = 0;
@@ -38,22 +38,23 @@ class H5RecorderV10 {
                 ins._video.src = window.URL.createObjectURL(stream);
                 ins._videoStream = stream;
 
-                let AudioContext = myWindow.AudioContext || myWindow.webkitAudioContext;
-                let ctx = new AudioContext();
-                let source = ctx.createMediaStreamSource(stream);
-                let processor = (ctx.createScriptProcessor || ctx.createJavaScriptNode).call(ctx, 1024 * 4, 1, 1);
-                processor.onaudioprocess = e => {
-                    let inputBuffer = e.inputBuffer;
-                    let data = inputBuffer.getChannelData(0);
-                    ins._audioQueue.push(data);
-                };
-                source.connect(processor);
-                processor.connect(ctx.destination);
+                // let AudioContext = myWindow.AudioContext || myWindow.webkitAudioContext;
+                // let ctx = new AudioContext();
+                // let source = ctx.createMediaStreamSource(stream);
+                // let processor = (ctx.createScriptProcessor || ctx.createJavaScriptNode).call(ctx, 1024 * 4, 1, 1);
+                // processor.onaudioprocess = e => {
+                //     let inputBuffer = e.inputBuffer;
+                //     let data = inputBuffer.getChannelData(0);
+                //     ins._audioQueue.push(data);
+                // };
+                // source.connect(processor);
+                // processor.connect(ctx.destination);
             }, err => {
                 console.log(err);
             });
         }
 
+        this.getData();
         this._initNetwork();
     }
 
@@ -112,13 +113,41 @@ class H5RecorderV10 {
         requestAnimationFrame(this.draw.bind(this));
     }
 
+    private getData() {
+        var ins = this;
+        var audioCtx = new AudioContext();
+        var source = audioCtx.createBufferSource();
+        var request = new XMLHttpRequest();
+
+        request.open('GET', 'wk1.wav', true);
+
+        request.responseType = 'arraybuffer';
+
+
+        request.onload = function () {
+            var audioData = request.response;
+            ins._audioQueue.push(request.response);
+
+            // audioCtx.decodeAudioData(audioData, function (buffer) {
+            //     source.buffer = buffer;
+            //     source.connect(audioCtx.destination);
+            //     source.loop = true;
+            //     source.start(0);
+            // });
+
+        }
+
+        request.send();
+    }
+
     private _upload() {
         let ins = this;
         if (this._isUploading) return;
         if (this._frameQueue.length == 0) return;
 
         this._isUploading = true;
-        let audio = this._arrayBufferToBase64(this.encodeWAV(this._audioQueue));
+        //let audio = this._arrayBufferToBase64(this.encodeWAV(this._audioQueue));
+        let audio = this._arrayBufferToBase64(this._audioQueue[0]);
         this._socket.emit('liveservice', {
             liveId: this._liveId,
             frames: this._frameQueue,
@@ -134,7 +163,7 @@ class H5RecorderV10 {
         console.log('Video ' + videoSize / 1024 + 'KB/s' + ', Audio ' + audio.length / 1024 + 'KB/s')
         this._isUploading = false;
         this._frameQueue = [];
-        this._audioQueue = [];
+        //this._audioQueue = [];
     }
 
     private _arrayBufferToBase64(buffer) {
@@ -178,15 +207,15 @@ class H5RecorderV10 {
         /* sample rate */
         view.setUint32(24, 48000, true);
         /* byte rate (sample rate * block align) */
-        view.setUint32(28, 48000 * 2, true);
+        view.setUint32(28, 48000 * 1 * 2, true);
         /* block align (channel count * bytes per sample) */
-        view.setUint16(32, 48000 * 2, true);
+        view.setUint16(32, 1 * 2, true);
         /* bits per sample */
         view.setUint16(34, 16, true);
         /* data chunk identifier */
         this.writeString(view, 36, 'data');
         /* data chunk length */
-        view.setUint32(40, sampleLength * 2, true);
+        view.setUint32(40, sampleLength * 2 + 44, true);
 
         this.floatTo16BitPCM(view, 44, samples);
         return arr;

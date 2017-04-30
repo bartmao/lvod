@@ -14,7 +14,7 @@
     <script>
                                 var c = document.getElementsByTagName('canvas')[0];
                                 var ctx = c.getContext('2d');
-                                var timeShift = 1000;
+                                var timeShift = 3000;
                                 var frames = [];
                                 var audios = [];
                                 var startTime;
@@ -26,13 +26,14 @@
                                 function start() {
                                     write('start');
                                     update();
-                                    this._socket = io.connect('http://localhost:8000');
+                                    //this._socket = io.connect('http://localhost:8000');
+                                    this._socket = io.connect('http://192.168.1.106:8000');
                                     this._socket.on('receiveFrames', function (group) {
                                         audios.push([group.ts, _base64ToArrayBuffer(group.audio)]);
 
-                                        group.frames.reduce(function (acc, f) {
-                                            size += f.data.length;
-                                        });
+                                        // group.frames.reduce(function (acc, f) {
+                                        //     size += f.data.length;
+                                        // });
                                         document.getElementById('info').innerHTML = size;
                                         frames = frames.concat(group.frames);
                                     });
@@ -56,7 +57,7 @@
                                         else if (mydiff >= 0) {
                                             //console.log(mydiff + 'ms');
                                             image.src = frame.data;
-                                            image.onload = () => {
+                                            image.onload = function(){
                                                 ctx.drawImage(image, 0, 0);
                                             }
 
@@ -70,16 +71,17 @@
                                         if (mydiff >= 0) {
                                             console.log(mydiff + 'ms last ' + audioGroup[0] + 'ms')
                                             var source = audioCtx.createBufferSource();
+                                            source.onended = function(){console.log('source ended');};
                                             //audioCtx.decodeAudioData(audioGroup[1].buffer, function (buffer) {
                                             audioCtx.decodeAudioData(audioGroup[1].buffer, function (buffer) {
                                                 source.buffer = buffer;
                                                 source.connect(audioCtx.destination);
-
-                                                var array = new Int32Array(buffer);
-                                            }, e => console.error(e));
+                                                source.start(0);
+                                            }, function(e){console.error(e);});
                                             audios.shift();
                                         }
                                     }
+
                                     requestAnimationFrame(this.update.bind(this));
                                 }
 

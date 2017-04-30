@@ -11,170 +11,176 @@
     <button id='mock' onclick="mock()">mock</button><br/>
     <button id='stop' onclick="stop()">stop</button><br/>
     <button id='stop' onclick="playaudio()">playaudio</button><br/>
-    <button id='encode' onclick="encode()">encode</button><br/>
-    <audio id='v1' src='wk.wav' autoplay></audio>
-    <video id='v0' autoplay width="640" height="480"></video>
+    <button id='encode' onclick="getData()">getData</button><br/>
+    <audio id='v1' src='wk1.wav' autoplay></audio>
+    <video id='v0' autoplay width="640" height="480" muted></video>
     <canvas visible width="640" height="480"></canvas>
     <video id="video-sample" data-dashjs-player controls="true" width="90%"></video>
 
     <script>
-                                 var r, _player;
-                                 var v = document.getElementById('v0');
-                                 var c = document.getElementsByTagName('canvas')[0];
+        var r, _player;
+        var v = document.getElementById('v0');
+        var c = document.getElementsByTagName('canvas')[0];
 
-                                 function start() {
-                                     r = new H5RecorderV10(v, c);
-                                     r.start();
-                                 }
+        function start() {
+            r = new H5RecorderV10(v, c);
+            r.start();
+        }
 
-                                 function mock() {
-                                     r = new H5RecorderV10(v, c, true);
-                                     r.start();
-                                 }
+        function mock() {
+            r = new H5RecorderV10(v, c, true);
+            r.start();
+        }
 
-                                 function stop() {
-                                     r.stop();
-                                 }
+        function stop() {
+            r.stop();
+        }
 
-                                 var d = document.getElementById('v1');
-                                 var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                                 var s = audioCtx.createMediaElementSource(d);
-                                 var samples = [];
-                                 //s.connect(audioCtx.destination);
-                                 //s.start(0);
-                                 var times = 1;
-                                 function playaudio() {
-                                     let processor = (audioCtx.createScriptProcessor || audioCtx.createJavaScriptNode).call(audioCtx, 1024 * 4, 1, 1);
-                                     processor.onaudioprocess = e => {
-                                         let inputBuffer = e.inputBuffer;
-                                         let data = inputBuffer.getChannelData(0).slice();
-                                         console.log(data);
-                                         if (times-- > 0) {
-                                             console.log('push data');
-                                             samples.push(data);
-                                             //  var arr = _base64ToArrayBuffer(_arrayBufferToBase64(encodeWAV(samples)));
-                                             //  console.log(arr);
-                                             //  samples = [];
-                                             //samples.push(data);
-                                         }
-                                         else {
-                                             console.log('done');
-                                             processor.onaudioprocess = null;
-                                             encode();
-                                         }
-                                     };
-                                     s.connect(processor).connect(audioCtx.destination);
-                                 }
+        var d = document.getElementById('v1');
+        var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        var s = audioCtx.createMediaElementSource(d);
+        var samples = [];
 
-                                 var saveByteArray = (function () {
-                                     var a = document.createElement("a");
-                                     document.body.appendChild(a);
-                                     a.style = "display: none";
-                                     return function (data, name) {
-                                         var blob = new Blob(data, { type: "octet/stream" }),
-                                             url = window.URL.createObjectURL(blob);
-                                         a.href = url;
-                                         a.download = name;
-                                         a.click();
-                                         window.URL.revokeObjectURL(url);
-                                     };
-                                 }());
+        function playaudio() {
+            let processor = (audioCtx.createScriptProcessor || audioCtx.createJavaScriptNode).call(audioCtx, 1024 * 4, 1, 1);
+            processor.onaudioprocess = e => {
+                e.outputBuffer = null;
+                let inputBuffer = e.inputBuffer;
+                let data = inputBuffer.getChannelData(0).slice();
+                console.log(data);
+                if (data[0] != 0) {
+                    console.log('push data');
+                    samples.push(data);
+                }
+                else {
+                    console.log('done');
+                    processor.onaudioprocess = null;
+                    processor.disconnect();
+                    encode();
+                }
+            };
+            s.connect(processor).connect(audioCtx.destination);
+        }
+
+        function getData() {
+            source = audioCtx.createBufferSource();
+            var request = new XMLHttpRequest();
+
+            request.open('GET', 'wk1.wav', true);
+
+            request.responseType = 'arraybuffer';
 
 
-                                 function encode() {
-                                     console.log(samples);
+            request.onload = function () {
+                var audioData = request.response;
 
-                                     var buf1 = new Uint8Array(encodeWAV(samples));
-                                     var buf = _base64ToArrayBuffer(_arrayBufferToBase64(encodeWAV(samples)));
-                                     console.log(buf);
-                                     var s = new Uint8Array(100);
-                                     saveByteArray(buf1, 'a.wav');
+                audioCtx.decodeAudioData(audioData, function (buffer) {
+                    source.buffer = buffer;
 
-                                     var source = audioCtx.createBufferSource();
+                    source.connect(audioCtx.destination);
+                    source.loop = true;
+                    source.start(0);
+                },
 
-                                     //audioCtx.decodeAudioData(audioGroup[1].buffer, function (buffer) {
-                                     audioCtx.decodeAudioData(buf.buffer, function (buffer) {
-                                         source.buffer = buffer;
-                                         source.connect(audioCtx.destination);
+                    function (e) { console.log("Error with decoding audio data" + e.err); });
 
-                                         //var array = new Int32Array(buffer);
-                                     }, e => console.error(e));
-                                 }
+            }
 
-                                 function _arrayBufferToBase64(buffer) {
-                                     var binary = '';
-                                     var bytes = new Uint8Array(buffer);
-                                     var len = bytes.byteLength;
-                                     for (var i = 0; i < len; i++) {
-                                         binary += String.fromCharCode(bytes[i]);
-                                     }
-                                     return window.btoa(binary);
-                                 }
-                                 function _base64ToArrayBuffer(str) {
-                                     var decodedStr = window.atob(str);
-                                     var bytes = new Uint8Array(decodedStr.length);
-                                     for (var i = 0; i < bytes.length; ++i) {
-                                         bytes[i] = decodedStr.charCodeAt(i);
-                                     }
-                                     return bytes;
-                                 }
-                                 function encodeWAV(samples) {
-                                     let sampleLength = 0;
-                                     samples.reduce((acc, cur) => sampleLength += cur.length, 0);
-                                     let newSamples = new Float32Array(sampleLength);
-                                     let newOffset = 0;
-                                     for (let i = 0; i < samples.length; ++i) {
-                                         newSamples.set(samples[i], newOffset);
-                                         newOffset += samples[i].length;
-                                     }
-                                     samples = newSamples;
+            request.send();
+        }
 
-                                     var arr = new ArrayBuffer(44 + sampleLength * 2);
-                                     var view = new DataView(arr);
+        function encode() {
+            console.log(samples);
 
-                                     /* RIFF identifier */
-                                     this.writeString(view, 0, 'RIFF');
-                                     /* RIFF chunk length */
-                                     view.setUint32(4, 36 + sampleLength * 2, true);
-                                     /* RIFF type */
-                                     this.writeString(view, 8, 'WAVE');
-                                     /* format chunk identifier */
-                                     this.writeString(view, 12, 'fmt ');
-                                     /* format chunk length */
-                                     view.setUint32(16, 16, true);
-                                     /* sample format (raw) */
-                                     view.setUint16(20, 1, true);
-                                     /* channel count */
-                                     view.setUint16(22, 1, true);
-                                     /* sample rate */
-                                     view.setUint32(24, 48000, true);
-                                     /* byte rate (sample rate * block align) */
-                                     view.setUint32(28, 48000 * 1 * 2, true);
-                                     /* block align (channel count * bytes per sample) */
-                                     view.setUint16(32, 1 * 2, true);
-                                     /* bits per sample */
-                                     view.setUint16(34, 16, true);
-                                     /* data chunk identifier */
-                                     this.writeString(view, 36, 'data');
-                                     /* data chunk length */
-                                     view.setUint32(40, sampleLength * 2 + 44, true);
+            var buf = _base64ToArrayBuffer(_arrayBufferToBase64(encodeWAV(samples)));
+            //saveByteArray([buf], 'a.wav');
+            //buf[0] = 0;
+            var ctx = new AudioContext();
+            var source = ctx.createBufferSource();
 
-                                     this.floatTo16BitPCM(view, 44, samples);
-                                     return arr;
-                                 }
+            //audioCtx.decodeAudioData(audioGroup[1].buffer, function (buffer) {
+            ctx.decodeAudioData(buf.buffer, function (buffer) {
+                source.buffer = buffer;
+                source.connect(ctx.destination);
+                source.loop = true;
+                source.start(0);
+            }, e => console.error(e));
+        }
 
-                                 function floatTo16BitPCM(view, offset, input) {
-                                     for (var i = 0; i < input.length; i++ , offset += 2) {
-                                         var s = Math.max(-1, Math.min(1, input[i]));
-                                         view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-                                     }
-                                 }
+        function _arrayBufferToBase64(buffer) {
+            var binary = '';
+            var bytes = new Uint8Array(buffer);
+            var len = bytes.byteLength;
+            for (var i = 0; i < len; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary);
+        }
+        function _base64ToArrayBuffer(str) {
+            var decodedStr = window.atob(str);
+            var bytes = new Uint8Array(decodedStr.length);
+            for (var i = 0; i < bytes.length; ++i) {
+                bytes[i] = decodedStr.charCodeAt(i);
+            }
+            return bytes;
+        }
+        function encodeWAV(samples) {
+            let sampleLength = 0;
+            samples.reduce((acc, cur) => sampleLength += cur.length, 0);
+            let newSamples = new Float32Array(sampleLength);
+            let newOffset = 0;
+            for (let i = 0; i < samples.length; ++i) {
+                newSamples.set(samples[i], newOffset);
+                newOffset += samples[i].length;
+            }
+            samples = newSamples;
 
-                                 function writeString(view, offset, string) {
-                                     for (var i = 0; i < string.length; i++) {
-                                         view.setUint8(offset + i, string.charCodeAt(i));
-                                     }
-                                 }
+            var arr = new ArrayBuffer(44 + sampleLength * 2);
+            var view = new DataView(arr);
+
+            /* RIFF identifier */
+            this.writeString(view, 0, 'RIFF');
+            /* RIFF chunk length */
+            view.setUint32(4, 36 + sampleLength * 2, true);
+            /* RIFF type */
+            this.writeString(view, 8, 'WAVE');
+            /* format chunk identifier */
+            this.writeString(view, 12, 'fmt ');
+            /* format chunk length */
+            view.setUint32(16, 16, true);
+            /* sample format (raw) */
+            view.setUint16(20, 1, true);
+            /* channel count */
+            view.setUint16(22, 1, true);
+            /* sample rate */
+            view.setUint32(24, 48000, true);
+            /* byte rate (sample rate * block align) */
+            view.setUint32(28, 48000 * 1 * 2, true);
+            /* block align (channel count * bytes per sample) */
+            view.setUint16(32, 1 * 2, true);
+            /* bits per sample */
+            view.setUint16(34, 16, true);
+            /* data chunk identifier */
+            this.writeString(view, 36, 'data');
+            /* data chunk length */
+            view.setUint32(40, sampleLength * 2 + 44, true);
+
+            this.floatTo16BitPCM(view, 44, samples);
+            return arr;
+        }
+
+        function floatTo16BitPCM(view, offset, input) {
+            for (var i = 0; i < input.length; i++ , offset += 2) {
+                var s = Math.max(-1, Math.min(1, input[i]));
+                view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+            }
+        }
+
+        function writeString(view, offset, string) {
+            for (var i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
     </script>
 </body>
 

@@ -27,7 +27,7 @@
                                     write('start');
                                     update();
                                     //this._socket = io.connect('http://localhost:8000');
-                                    this._socket = io.connect('http://192.168.1.106:8000');
+                                    this._socket = io.connect('http://192.168.1.104:8000');
                                     this._socket.on('receiveFrames', function (group) {
                                         audios.push([group.ts, _base64ToArrayBuffer(group.audio)]);
 
@@ -77,6 +77,7 @@
                                                 source.buffer = buffer;
                                                 source.connect(audioCtx.destination);
                                                 source.start(0);
+                                                source.loop = false;
                                             }, function(e){console.error(e);});
                                             audios.shift();
                                         }

@@ -11,8 +11,8 @@ class H5RecorderV10 {
     private _isRunning = false;
 
     private _ts = 0;
-    private _fps = 2;
-    private _dur = 3;
+    private _fps = 10;
+    private _dur = 5;
     private _sec = 0;
     private _tick = -1;
     private _seq = 0;
@@ -29,6 +29,24 @@ class H5RecorderV10 {
 
     constructor(private _video, private _canvas, private _mockup: boolean = false) {
         let ins = this;
+
+        let AudioContext = myWindow.AudioContext || myWindow.webkitAudioContext;
+        let ctx = new AudioContext();
+        let source = ctx.createMediaElementSource(_video);
+        let processor = (ctx.createScriptProcessor || ctx.createJavaScriptNode).call(ctx, 1024 * 4, 1, 1);
+        processor.onaudioprocess = e => {
+            let inputBuffer = e.inputBuffer;
+            let data = inputBuffer.getChannelData(0);
+            ins._audioQueue.push(data.slice());
+            var outputBuffer = e.outputBuffer;
+            var outputData = outputBuffer.getChannelData(0);
+            for (var sample = 0; sample < inputBuffer.length; sample++) {
+                outputData[sample] = data[sample];
+            }
+        };
+        source.connect(processor);
+        processor.connect(ctx.destination);
+
         if (!_mockup) {
             myNavigator.getUserMedia = myNavigator.getUserMedia ||
                 myNavigator.webkitGetUserMedia ||
@@ -54,7 +72,7 @@ class H5RecorderV10 {
             });
         }
 
-        this.getData();
+        //this.getData();
         this._initNetwork();
     }
 
@@ -82,13 +100,15 @@ class H5RecorderV10 {
         if (!this._isRunning) return;
 
         let ins = this;
-        if (!this._mockup) {
-            var ctx = this._canvas.getContext('2d');
-            ctx.drawImage(this._video, 0, 0, this._canvas.width, this._canvas.height);
-        }
-        else {
-            this._getClock();
-        }
+        var ctx = this._canvas.getContext('2d');
+        ctx.drawImage(this._video, 0, 0, this._canvas.width, this._canvas.height);
+        // if (!this._mockup) {
+        //     var ctx = this._canvas.getContext('2d');
+        //     ctx.drawImage(this._video, 0, 0, this._canvas.width, this._canvas.height);
+        // }
+        // else {
+        //     this._getClock();
+        // }
 
         let ts = +new Date() - this._ts;
         let sec = Math.floor(ts / 1000 / this._dur);
@@ -113,46 +133,19 @@ class H5RecorderV10 {
         requestAnimationFrame(this.draw.bind(this));
     }
 
-    private getData() {
-        var ins = this;
-        var audioCtx = new AudioContext();
-        var source = audioCtx.createBufferSource();
-        var request = new XMLHttpRequest();
-
-        request.open('GET', 'wk1.wav', true);
-
-        request.responseType = 'arraybuffer';
-
-
-        request.onload = function () {
-            var audioData = request.response;
-            ins._audioQueue.push(request.response);
-
-            // audioCtx.decodeAudioData(audioData, function (buffer) {
-            //     source.buffer = buffer;
-            //     source.connect(audioCtx.destination);
-            //     source.loop = true;
-            //     source.start(0);
-            // });
-
-        }
-
-        request.send();
-    }
-
     private _upload() {
         let ins = this;
         if (this._isUploading) return;
         if (this._frameQueue.length == 0) return;
 
         this._isUploading = true;
-        //let audio = this._arrayBufferToBase64(this.encodeWAV(this._audioQueue));
-        let audio = this._arrayBufferToBase64(this._audioQueue[0]);
+        let audio = this._arrayBufferToBase64(this.encodeWAV(this._audioQueue));
+        //let audio = this._arrayBufferToBase64(this._audioQueue[0]);
         this._socket.emit('liveservice', {
             liveId: this._liveId,
             frames: this._frameQueue,
             audio: audio,
-            ts: new Date(),
+            ts: this._frameQueue[0].ts,
             op: 'distribFrames',
             ver: '10'
         });
@@ -163,7 +156,7 @@ class H5RecorderV10 {
         console.log('Video ' + videoSize / 1024 + 'KB/s' + ', Audio ' + audio.length / 1024 + 'KB/s')
         this._isUploading = false;
         this._frameQueue = [];
-        //this._audioQueue = [];
+        this._audioQueue = [];
     }
 
     private _arrayBufferToBase64(buffer) {

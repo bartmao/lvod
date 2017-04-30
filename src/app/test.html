@@ -2,24 +2,18 @@
 
 <head>
     <script src="js/jquery-2.0.0.min.js"></script>
-    <script src="http://cdn.dashjs.org/latest/dash.all.debug.js"></script>
 </head>
 
 <body>
     <input id='liveid' type='text' />
     <button id='play' onclick="play()">play</button><br/>
-    <video id="video-sample" data-dashjs-player controls="true" width="90%"></video>
-    <script>
-        var _player;
+    <video id="video-sample" controls autoplay src='f.mp4'></video>
+    <canvas visible width="640" height="480"></canvas>
 
-        function play() {
-            liveId = $('#liveid').val();
-            url = 'http://localhost:8000/' + liveId + '/live_v.mpd';
-            if (!_player)
-                _player = dashjs.MediaPlayer().create();
-            _player.initialize($("#video-sample")[0], null, true);
-            _player.attachSource(url);
-        }
+    <script>
+        var video = document.querySelector('video');
+        var canvas = document.querySelector('canvas');
+        
     </script>
 </body>
 

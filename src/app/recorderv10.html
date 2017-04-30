@@ -7,23 +7,24 @@
 </head>
 
 <body>
-    <button id='live' onclick="start()">live</button><br/>
-    <button id='mock' onclick="mock()">mock</button><br/>
-    <button id='stop' onclick="stop()">stop</button><br/>
-    <button id='stop' onclick="playaudio()">playaudio</button><br/>
+    <button id='live' onclick="start()">live</button>
+    <button id='mock' onclick="mock()">mock</button>
+    <button id='stop' onclick="stop()">stop</button>
+    <button id='stop' onclick="playaudio()">playaudio</button>
     <button id='encode' onclick="getData()">getData</button><br/>
-    <audio id='v1' src='wk1.wav' autoplay></audio>
-    <video id='v0' autoplay width="640" height="480" muted></video>
-    <canvas visible width="640" height="480"></canvas>
+    <audio id='v1' autoplay></audio>
+    <video id='v0' controls autoplay width="200" height="200" src="f0.mp4"></video>
+    <canvas visible width="200" height="200"></canvas>
     <video id="video-sample" data-dashjs-player controls="true" width="90%"></video>
 
     <script>
         var r, _player;
         var v = document.getElementById('v0');
+        var a = document.getElementById('v1');
         var c = document.getElementsByTagName('canvas')[0];
 
         function start() {
-            r = new H5RecorderV10(v, c);
+            r = new H5RecorderV10(v, c, true);
             r.start();
         }
 
@@ -36,10 +37,10 @@
             r.stop();
         }
 
-        var d = document.getElementById('v1');
-        var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        var s = audioCtx.createMediaElementSource(d);
-        var samples = [];
+        // var d = document.getElementById('v1');
+        // var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        // var s = audioCtx.createMediaElementSource(d);
+        // var samples = [];
 
         function playaudio() {
             let processor = (audioCtx.createScriptProcessor || audioCtx.createJavaScriptNode).call(audioCtx, 1024 * 4, 1, 1);

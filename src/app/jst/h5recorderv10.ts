@@ -10,9 +10,10 @@ class H5RecorderV10 {
     private _videoStream: MediaStream;
     private _isRunning = false;
 
+    private _uploadTs;
     private _ts = 0;
     private _fps = 10;
-    private _dur = 5;
+    private _dur = 1;
     private _sec = 0;
     private _tick = -1;
     private _seq = 0;
@@ -27,6 +28,7 @@ class H5RecorderV10 {
     private _curSeq = 0;
     private _isUploading = false;
 
+    private _totalAudioQ = [];
     constructor(private _video, private _canvas, private _mockup: boolean = false) {
         let ins = this;
 
@@ -35,9 +37,11 @@ class H5RecorderV10 {
         let source = ctx.createMediaElementSource(_video);
         let processor = (ctx.createScriptProcessor || ctx.createJavaScriptNode).call(ctx, 1024 * 4, 1, 1);
         processor.onaudioprocess = e => {
+            if (!this._uploadTs) return;
             let inputBuffer = e.inputBuffer;
             let data = inputBuffer.getChannelData(0);
             ins._audioQueue.push(data.slice());
+            //ins._totalAudioQ.push(data.slice());
             var outputBuffer = e.outputBuffer;
             var outputData = outputBuffer.getChannelData(0);
             for (var sample = 0; sample < inputBuffer.length; sample++) {
@@ -88,12 +92,28 @@ class H5RecorderV10 {
             this._liveId = live.liveId;
             console.log('start live: ' + this._liveId);
             this._ts = +new Date();
+            this._uploadTs = +new Date();
             this.draw();
         });
     }
 
     stop() {
         this._isRunning = false;
+    }
+    saveAudio() {
+        this._totalAudioQ.map(function(v){
+            
+        });
+        var au = this.encodeWAV(this._totalAudioQ);
+        var b = new Blob([au], { type: 'audio/wav' });
+        var a = document.createElement("a");
+        document.body.appendChild(a);
+        a.style = "display: none";
+        var url = window.URL.createObjectURL(b);
+        a.href = url;
+        a.download = 'fileName.wav';
+        a.click();
+        window.URL.revokeObjectURL(url);
     }
 
     draw() {
@@ -145,7 +165,7 @@ class H5RecorderV10 {
             liveId: this._liveId,
             frames: this._frameQueue,
             audio: audio,
-            ts: this._frameQueue[0].ts,
+            ts: this._uploadTs,
             op: 'distribFrames',
             ver: '10'
         });
@@ -154,9 +174,11 @@ class H5RecorderV10 {
             videoSize += cur.data.length;
         }, 0);
         console.log('Video ' + videoSize / 1024 + 'KB/s' + ', Audio ' + audio.length / 1024 + 'KB/s')
+        this._totalAudioQ.push(audio);
         this._isUploading = false;
         this._frameQueue = [];
         this._audioQueue = [];
+        this._uploadTs = +new Date;
     }
 
     private _arrayBufferToBase64(buffer) {
@@ -208,7 +230,7 @@ class H5RecorderV10 {
         /* data chunk identifier */
         this.writeString(view, 36, 'data');
         /* data chunk length */
-        view.setUint32(40, sampleLength * 2 + 44, true);
+        view.setUint32(40, sampleLength * 2, true);
 
         this.floatTo16BitPCM(view, 44, samples);
         return arr;

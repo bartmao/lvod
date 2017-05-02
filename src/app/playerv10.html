@@ -7,7 +7,7 @@
 
 <body>
     <button id='live' onclick="start()">play</button><br/>
-    <button id='click' onclick="decode()">decode</button><br/>
+    <button id='click' onclick="save()">save</button><br/>
     <canvas width="640" height="480"></canvas>
     <div id='info'></div>
     <div id='output'></div>
@@ -17,26 +17,87 @@
                                 var timeShift = 3000;
                                 var frames = [];
                                 var audios = [];
+                                var totalAudios = [];
                                 var startTime;
                                 var diff;
                                 var size = 0;
                                 var image = new Image();
                                 var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
+                                var audioDiff = 0;
+                                var audioTime;
+                                var audioAvail;
+                                var testseq = 10;
                                 function start() {
                                     write('start');
                                     update();
-                                    //this._socket = io.connect('http://localhost:8000');
-                                    this._socket = io.connect('http://192.168.1.104:8000');
-                                    this._socket.on('receiveFrames', function (group) {
-                                        audios.push([group.ts, _base64ToArrayBuffer(group.audio)]);
+                                    //updateAudio();
 
+                                    var processor = (audioCtx.createScriptProcessor || audioCtx.createJavaScriptNode).call(audioCtx, 1024 * 4, 1, 1);
+                                    processor.onaudioprocess = e => {
+                                        if (!audioDiff) return;
+                                        var inputBuffer = e.inputBuffer;
+                                        var data = inputBuffer.getChannelData(0);
+
+
+                                        var outputBuffer = e.outputBuffer;
+                                        var outputData = outputBuffer.getChannelData(0);
+                                        for (var sample = 0; sample < inputBuffer.length; sample++) {
+                                            outputData[sample] = data[sample];
+                                        }
+                                        //console.log('audio processed ' + data.length);
+                                    };
+                                    processor.connect(audioCtx.destination);
+
+                                    this._socket = io.connect('http://localhost:8000');
+                                    //this._socket = io.connect('http://192.168.1.104:8000');
+                                    this._socket.on('receiveFrames', function (group) {
+                                        if (!audioDiff) {
+                                            audioTime = new Date(group.ts);
+                                            audioDiff = audioCtx.currentTime;
+                                            playTime = audioDiff;
+                                            console.log(audioDiff);
+                                        }
+
+                                        //audios.push([group.ts, _base64ToArrayBuffer(group.audio)]);
+                                        //console.log(group.ts);
+                                        //var playTime = (new Date(group.ts) - audioTime) + audioDiff;
+                                        var audioBuf = _base64ToArrayBuffer(group.audio);
+
+                                        //audios.push([playTime, audioBuf]);
+                                        audioCtx.decodeAudioData(audioBuf.buffer, function (buffer) {
+
+
+                                            console.log(playTime + 's last ' + buffer.duration + 's')
+                                            var source = audioCtx.createBufferSource();
+                                            source.onended = function () {
+                                                console.log('ended');
+                                            };
+                                            source.connect(processor);
+                                            //source.loop = false;
+                                            source.start(playTime);
+                                            source.buffer = buffer;
+                                            playTime += buffer.duration;
+
+                                        }, function (e) { console.error(e); });
                                         // group.frames.reduce(function (acc, f) {
                                         //     size += f.data.length;
                                         // });
                                         document.getElementById('info').innerHTML = size;
                                         frames = frames.concat(group.frames);
                                     });
+                                }
+
+                                function save() {
+                                    var au = encodeWAV(totalAudios);
+                                    var b = new Blob([au], { type: 'audio/wav' });
+                                    var a = document.createElement("a");
+                                    document.body.appendChild(a);
+                                    a.style = "display: none";
+                                    var url = window.URL.createObjectURL(b);
+                                    a.href = url;
+                                    a.download = 'fileName.wav';
+                                    a.click();
+                                    window.URL.revokeObjectURL(url);
                                 }
 
                                 function update() {
@@ -57,7 +118,7 @@
                                         else if (mydiff >= 0) {
                                             //console.log(mydiff + 'ms');
                                             image.src = frame.data;
-                                            image.onload = function(){
+                                            image.onload = function () {
                                                 ctx.drawImage(image, 0, 0);
                                             }
 
@@ -65,25 +126,49 @@
                                         }
                                     }
 
+                                    // if (audios.length > 0) {
+                                    //     var audioGroup = audios[0];
+                                    //     var mydiff = ts - diff - timeShift - new Date(audioGroup[0]);
+                                    //     if (mydiff >= 0) {
+                                    //         console.log(mydiff + 'ms last ' + audioGroup[0] + 'ms')
+                                    //         source.onended = function () { console.log('source ended'); };
+                                    //         //audioCtx.decodeAudioData(audioGroup[1].buffer, function (buffer) {
+                                    //         audioCtx.decodeAudioData(audioGroup[1].buffer, function (buffer) {
+                                    //             source.buffer = buffer;
+                                    //         }, function (e) { console.error(e); });
+                                    //         audios.shift();
+                                    //     }
+                                    // }
+
+                                    requestAnimationFrame(this.update.bind(this));
+                                }
+
+                                function updateAudio() {
+                                    var ts = +new Date();
                                     if (audios.length > 0) {
                                         var audioGroup = audios[0];
                                         var mydiff = ts - diff - timeShift - new Date(audioGroup[0]);
                                         if (mydiff >= 0) {
-                                            console.log(mydiff + 'ms last ' + audioGroup[0] + 'ms')
-                                            var source = audioCtx.createBufferSource();
-                                            source.onended = function(){console.log('source ended');};
                                             //audioCtx.decodeAudioData(audioGroup[1].buffer, function (buffer) {
                                             audioCtx.decodeAudioData(audioGroup[1].buffer, function (buffer) {
-                                                source.buffer = buffer;
+                                                console.log(mydiff + 'ms last ' + buffer.duration + 'ms')
+                                                var source = audioCtx.createBufferSource();
+                                                source.onended = function () {
+
+                                                };
                                                 source.connect(audioCtx.destination);
-                                                source.start(0);
                                                 source.loop = false;
-                                            }, function(e){console.error(e);});
+                                                source.start(0);
+                                                source.buffer = buffer;
+                                            }, function (e) { console.error(e); });
                                             audios.shift();
                                         }
                                     }
+                                    else {
+                                        console.log('not decoded');
+                                    }
 
-                                    requestAnimationFrame(this.update.bind(this));
+                                    setTimeout(updateAudio, 0);
                                 }
 
                                 function _base64ToArrayBuffer(str) {
@@ -109,6 +194,64 @@
                                     var div = document.getElementById('output');
                                     if (div.innerHTML.length > 1000) div.innerHTML = '';
                                     div.innerHTML = new Date() + msg + '<br/>' + div.innerHTML;
+                                }
+
+                                function encodeWAV(samples) {
+                                    let sampleLength = 0;
+                                    samples.reduce((acc, cur) => sampleLength += cur.length, 0);
+                                    let newSamples = new Float32Array(sampleLength);
+                                    let newOffset = 0;
+                                    for (let i = 0; i < samples.length; ++i) {
+                                        newSamples.set(samples[i], newOffset);
+                                        newOffset += samples[i].length;
+                                    }
+                                    samples = newSamples;
+
+                                    var arr = new ArrayBuffer(44 + sampleLength * 2);
+                                    var view = new DataView(arr);
+
+                                    /* RIFF identifier */
+                                    this.writeString(view, 0, 'RIFF');
+                                    /* RIFF chunk length */
+                                    view.setUint32(4, 36 + sampleLength * 2, true);
+                                    /* RIFF type */
+                                    this.writeString(view, 8, 'WAVE');
+                                    /* format chunk identifier */
+                                    this.writeString(view, 12, 'fmt ');
+                                    /* format chunk length */
+                                    view.setUint32(16, 16, true);
+                                    /* sample format (raw) */
+                                    view.setUint16(20, 1, true);
+                                    /* channel count */
+                                    view.setUint16(22, 1, true);
+                                    /* sample rate */
+                                    view.setUint32(24, 48000, true);
+                                    /* byte rate (sample rate * block align) */
+                                    view.setUint32(28, 48000 * 1 * 2, true);
+                                    /* block align (channel count * bytes per sample) */
+                                    view.setUint16(32, 1 * 2, true);
+                                    /* bits per sample */
+                                    view.setUint16(34, 16, true);
+                                    /* data chunk identifier */
+                                    this.writeString(view, 36, 'data');
+                                    /* data chunk length */
+                                    view.setUint32(40, sampleLength * 2 + 44, true);
+
+                                    this.floatTo16BitPCM(view, 44, samples);
+                                    return arr;
+                                }
+
+                                function floatTo16BitPCM(view, offset, input) {
+                                    for (var i = 0; i < input.length; i++ , offset += 2) {
+                                        var s = Math.max(-1, Math.min(1, input[i]));
+                                        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                                    }
+                                }
+
+                                function writeString(view, offset, string) {
+                                    for (var i = 0; i < string.length; i++) {
+                                        view.setUint8(offset + i, string.charCodeAt(i));
+                                    }
                                 }
     </script>
 </body>

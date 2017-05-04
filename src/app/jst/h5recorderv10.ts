@@ -10,7 +10,6 @@ class H5RecorderV10 {
     private _videoStream: MediaStream;
     private _isRunning = false;
 
-    private _uploadTs;
     private _ts = 0;
     private _fps = 10;
     private _dur = 1;
@@ -28,6 +27,8 @@ class H5RecorderV10 {
     private _curSeq = 0;
     private _isUploading = false;
 
+    private _audioTs;
+    private _audioStartTs;
     private _totalAudioQ = [];
     constructor(private _video, private _canvas, private _mockup: boolean = false) {
         let ins = this;
@@ -37,7 +38,11 @@ class H5RecorderV10 {
         let source = ctx.createMediaElementSource(_video);
         let processor = (ctx.createScriptProcessor || ctx.createJavaScriptNode).call(ctx, 1024 * 4, 1, 1);
         processor.onaudioprocess = e => {
-            if (!this._uploadTs) return;
+            if (!this._liveId) return;
+            if (ins._audioQueue.length == 0) {
+                if (!ins._audioStartTs) ins._audioStartTs = +new Date();
+                ins._audioTs = +new Date() - ins._audioStartTs;
+            }
             let inputBuffer = e.inputBuffer;
             let data = inputBuffer.getChannelData(0);
             ins._audioQueue.push(data.slice());
@@ -92,7 +97,6 @@ class H5RecorderV10 {
             this._liveId = live.liveId;
             console.log('start live: ' + this._liveId);
             this._ts = +new Date();
-            this._uploadTs = +new Date();
             this.draw();
         });
     }
@@ -101,10 +105,8 @@ class H5RecorderV10 {
         this._isRunning = false;
     }
     saveAudio() {
-        this._totalAudioQ.map(function(v){
-            
-        });
-        var au = this.encodeWAV(this._totalAudioQ);
+
+        var au = this.encodeWAV(this._totalAudioQ, 48000, 1, 1);
         var b = new Blob([au], { type: 'audio/wav' });
         var a = document.createElement("a");
         document.body.appendChild(a);
@@ -159,13 +161,14 @@ class H5RecorderV10 {
         if (this._frameQueue.length == 0) return;
 
         this._isUploading = true;
-        let audio = this._arrayBufferToBase64(this.encodeWAV(this._audioQueue));
+        let audio = this._arrayBufferToBase64(this.encodeWAV(this._audioQueue, 48000, 1, 1));
         //let audio = this._arrayBufferToBase64(this._audioQueue[0]);
         this._socket.emit('liveservice', {
             liveId: this._liveId,
             frames: this._frameQueue,
             audio: audio,
-            ts: this._uploadTs,
+            ts: this._audioTs,
+            audioTs: this._audioTs,
             op: 'distribFrames',
             ver: '10'
         });
@@ -174,11 +177,9 @@ class H5RecorderV10 {
             videoSize += cur.data.length;
         }, 0);
         console.log('Video ' + videoSize / 1024 + 'KB/s' + ', Audio ' + audio.length / 1024 + 'KB/s')
-        this._totalAudioQ.push(audio);
         this._isUploading = false;
         this._frameQueue = [];
         this._audioQueue = [];
-        this._uploadTs = +new Date;
     }
 
     private _arrayBufferToBase64(buffer) {
@@ -191,24 +192,55 @@ class H5RecorderV10 {
         return window.btoa(binary);
     }
 
-    private encodeWAV(samples) {
-        let sampleLength = 0;
-        samples.reduce((acc, cur) => sampleLength += cur.length, 0);
-        let newSamples = new Float32Array(sampleLength);
-        let newOffset = 0;
+    // origin is 48k16b samples
+    private downSampleTo8k8b(samples: Float32Array, sampleRate, bytesPerChunk) {
+        let ratio = 48000 / sampleRate;
+        let newSamples = new Uint8Array(samples.length / ratio * bytesPerChunk)
+        let sum = 0;
         for (let i = 0; i < samples.length; ++i) {
-            newSamples.set(samples[i], newOffset);
-            newOffset += samples[i].length;
-        }
-        samples = newSamples;
+            sum += samples[i];
+            if ((i + 1) % ratio == 0) {
+                let avg = samples[i]; // drop some
+                if (bytesPerChunk == 1)
+                    newSamples[Math.floor((i + 1) / ratio) - 1] = avg < 0 ? avg * 0x80 : avg * 0x7F;
+                else
+                    newSamples[Math.floor((i + 1) / ratio) - 1] = avg < 0 ? avg * 0x80 : avg * 0x7F;
 
-        var arr = new ArrayBuffer(44 + sampleLength * 2);
-        var view = new DataView(arr);
+                sum = 0;
+            }
+        }
+
+        return newSamples;
+    }
+
+
+    private encodeWAV(samplesCollection: Float32Array[], sampleRate, channels, bytesPerChunk) {
+        // Merge samples
+        let totalSampleLength = 0;
+        samplesCollection.reduce((acc, cur) => totalSampleLength += cur.length, 0);
+        let mergedSamples = new Float32Array(totalSampleLength);
+        let mergedSamplesOffset = 0;
+        for (let i = 0; i < samplesCollection.length; ++i) {
+            mergedSamples.set(samplesCollection[i], mergedSamplesOffset);
+            mergedSamplesOffset += samplesCollection[i].length;
+        }
+
+        // Downsampling
+        let downSampled = this.downSampleTo8k8b(mergedSamples, sampleRate, bytesPerChunk);
+        let wavDataSize = downSampled.byteLength;
+
+        // Write wav
+        var sampleLength = wavDataSize;
+        var wavBuffer = new ArrayBuffer(44 + wavDataSize * bytesPerChunk);
+        var view = new DataView(wavBuffer);
+        for (let i = 0; i < downSampled.byteLength; ++i) {
+            view.setUint8(i + 44, downSampled[i]);
+        }
 
         /* RIFF identifier */
         this.writeString(view, 0, 'RIFF');
         /* RIFF chunk length */
-        view.setUint32(4, 36 + sampleLength * 2, true);
+        view.setUint32(4, 36 + wavDataSize * bytesPerChunk, true);
         /* RIFF type */
         this.writeString(view, 8, 'WAVE');
         /* format chunk identifier */
@@ -218,22 +250,21 @@ class H5RecorderV10 {
         /* sample format (raw) */
         view.setUint16(20, 1, true);
         /* channel count */
-        view.setUint16(22, 1, true);
+        view.setUint16(22, channels, true);
         /* sample rate */
-        view.setUint32(24, 48000, true);
+        view.setUint32(24, sampleRate, true);
         /* byte rate (sample rate * block align) */
-        view.setUint32(28, 48000 * 1 * 2, true);
+        view.setUint32(28, sampleRate * channels * bytesPerChunk, true);
         /* block align (channel count * bytes per sample) */
-        view.setUint16(32, 1 * 2, true);
+        view.setUint16(32, channels * bytesPerChunk, true);
         /* bits per sample */
-        view.setUint16(34, 16, true);
+        view.setUint16(34, 8 * bytesPerChunk, true);
         /* data chunk identifier */
         this.writeString(view, 36, 'data');
         /* data chunk length */
-        view.setUint32(40, sampleLength * 2, true);
+        view.setUint32(40, wavDataSize * bytesPerChunk, true);
 
-        this.floatTo16BitPCM(view, 44, samples);
-        return arr;
+        return wavBuffer;
     }
 
     private floatTo16BitPCM(view, offset, input) {

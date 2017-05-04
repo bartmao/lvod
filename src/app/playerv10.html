@@ -12,240 +12,233 @@
     <div id='info'></div>
     <div id='output'></div>
     <script>
-        var c = document.getElementsByTagName('canvas')[0];
-        var ctx = c.getContext('2d');
-        var timeShift = 3000;
-        var frames = [];
-        var audios = [];
-        var totalAudios = [];
-        var startTime;
-        var diff;
-        var size = 0;
-        var image = new Image();
-        var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        var audioDiff = 0;
-        var audioTime;
-        var audioAvail;
-        var testseq = 10;
+                                var c = document.getElementsByTagName('canvas')[0];
+                                var ctx = c.getContext('2d');
+                                var timeShift = 3000;
+                                var frames = [];
+                                var audios = [];
+                                var totalAudios = [];
+                                var startTime;
+                                var diff;
+                                var size = 0;
+                                var image = new Image();
+                                var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                                var audioTime;
+                                var audioAvail;
+                                var testseq = 10;
 
-        var playTime = 0;
-        var anotherBuf = [];
-        function start() {
-            write('start');
-            update();
-            //updateAudio();
-            this._socket = io.connect('http://localhost:8000');
-            //this._socket = io.connect('http://192.168.1.104:8000');
-            this._socket.on('receiveFrames', function (group) {
-                audioTime = new Date(group.ts);
-                if (!audioDiff) {
-                    audioDiff = +new Date - audioTime;
-                    playTime = audioCtx.currentTime;
-                    console.log(playTime);
-                }
+                                var playTime = 0;
+                                var audioOffset = 0;
+                                var lastAudioEndTime = 0;
+                                function start() {
+                                    write('start');
+                                    update();
+                                    //updateAudio();
+                                    this._socket = io.connect('http://localhost:8000');
+                                    //this._socket = io.connect('http://192.168.1.104:8000');
+                                    this._socket.on('receiveFrames', function (group) {
+                                        if (!audioOffset) {
+                                            audioOffset = group.audioTs / 1000 - audioCtx.currentTime - timeShift / 1000;
+                                            console.log(audioOffset);
+                                        }
+                                        playTime = group.audioTs / 1000 - audioOffset;
+                                        if(playTime <= lastAudioEndTime)
+                                            console.log('adjusted '+ (lastAudioEndTime - playTime) + 's');
+                                        playTime += playTime > lastAudioEndTime ? 0 : lastAudioEndTime - playTime;
+                                        var audioBuf = _base64ToArrayBuffer(group.audio);
+                                        audioCtx.decodeAudioData(audioBuf.buffer, function (buffer) {
+                                            lastAudioEndTime = playTime + buffer.duration;
+                                            //console.log(playTime + 's last ' + buffer.duration + 's')
+                                            //audios.push([playTime, buffer]);
 
-                console.log(audioDiff);
-                //audios.push([group.ts, _base64ToArrayBuffer(group.audio)]);
-                //console.log(group.ts);
-                //var playTime = (new Date(group.ts) - audioTime) + audioDiff;
-                var audioBuf = _base64ToArrayBuffer(group.audio);
+                                            var source = audioCtx.createBufferSource();
+                                            source.onended = function () {
+                                                //console.log('end at ' + audioCtx.currentTime);
+                                            };
+                                            source.buffer = buffer;
+                                            source.connect(audioCtx.destination);
+                                            source.start(playTime);
 
-                //audios.push([playTime, audioBuf]);
-                audioCtx.decodeAudioData(audioBuf.buffer, function (buffer) {
-                    console.log(playTime + 's last ' + buffer.duration + 's ended at ' + (playTime + buffer.duration))
-                    //audios.push([playTime, buffer]);
+                                        }, function (e) { console.error(e); });
+                                        // group.frames.reduce(function (acc, f) {
+                                        //     size += f.data.length;
+                                        // });
+                                        document.getElementById('info').innerHTML = size;
+                                        frames = frames.concat(group.frames);
+                                    });
+                                }
 
-                    var source = audioCtx.createBufferSource();
-                    source.onended = function () {
-                        console.log('end at ' + audioCtx.currentTime);
-                    };
-                    source.buffer = buffer;
-                    source.connect(audioCtx.destination);
-                    source.start(playTime);
+                                function addToAudioBuffer(audioBuf) {
 
+                                }
 
-                    //playTime += (buffer.duration + 20 / 1000);
+                                function save() {
+                                    var au = encodeWAV(totalAudios);
+                                    var b = new Blob([au], { type: 'audio/wav' });
+                                    var a = document.createElement("a");
+                                    document.body.appendChild(a);
+                                    a.style = "display: none";
+                                    var url = window.URL.createObjectURL(b);
+                                    a.href = url;
+                                    a.download = 'fileName.wav';
+                                    a.click();
+                                    window.URL.revokeObjectURL(url);
+                                }
 
-                }, function (e) { console.error(e); });
-                // group.frames.reduce(function (acc, f) {
-                //     size += f.data.length;
-                // });
-                document.getElementById('info').innerHTML = size;
-                frames = frames.concat(group.frames);
-            });
-        }
+                                function update() {
+                                    var ts = +new Date();
+                                    if (frames.length > 0) {
+                                        var frame = frames[0];
+                                        if (!startTime) {
+                                            startTime = new Date(frame.ts);
+                                            diff = ts - startTime;
+                                        }
 
-        function addToAudioBuffer(audioBuf) {
+                                        var mydiff = ts - diff - timeShift - new Date(frame.ts);
+                                        // drop frames
+                                        if (mydiff >= 1000) {
+                                            frames.shift();
+                                        }
+                                        // frames to display
+                                        else if (mydiff >= 0) {
+                                            //console.log(mydiff + 'ms');
+                                            image.src = frame.data;
+                                            image.onload = function () {
+                                                ctx.drawImage(image, 0, 0);
+                                            }
 
-        }
+                                            frames.shift();
+                                        }
+                                    }
 
-        function save() {
-            var au = encodeWAV(totalAudios);
-            var b = new Blob([au], { type: 'audio/wav' });
-            var a = document.createElement("a");
-            document.body.appendChild(a);
-            a.style = "display: none";
-            var url = window.URL.createObjectURL(b);
-            a.href = url;
-            a.download = 'fileName.wav';
-            a.click();
-            window.URL.revokeObjectURL(url);
-        }
+                                    // if (audios.length > 0) {
+                                    //     var audioGroup = audios[0];
+                                    //     var mydiff = ts - diff - timeShift - new Date(audioGroup[0]);
+                                    //     if (mydiff >= 0) {
+                                    //         console.log(mydiff + 'ms last ' + audioGroup[0] + 'ms')
+                                    //         source.onended = function () { console.log('source ended'); };
+                                    //         //audioCtx.decodeAudioData(audioGroup[1].buffer, function (buffer) {
+                                    //         audioCtx.decodeAudioData(audioGroup[1].buffer, function (buffer) {
+                                    //             source.buffer = buffer;
+                                    //         }, function (e) { console.error(e); });
+                                    //         audios.shift();
+                                    //     }
+                                    // }
 
-        function update() {
-            var ts = +new Date();
-            if (frames.length > 0) {
-                var frame = frames[0];
-                if (!startTime) {
-                    startTime = new Date(frame.ts);
-                    diff = ts - startTime;
-                }
+                                    requestAnimationFrame(this.update.bind(this));
+                                }
 
-                var mydiff = ts - diff - timeShift - new Date(frame.ts);
-                // drop frames
-                if (mydiff >= 1000) {
-                    frames.shift();
-                }
-                // frames to display
-                else if (mydiff >= 0) {
-                    //console.log(mydiff + 'ms');
-                    image.src = frame.data;
-                    image.onload = function () {
-                        ctx.drawImage(image, 0, 0);
-                    }
+                                var onPlayAudio = false;
+                                function updateAudio() {
+                                    var ts = +new Date();
+                                    if (audios.length > 0 && !onPlayAudio) {
+                                        var audioGroup = audios[0];
+                                        var mydiff = audioCtx.currentTime - audioGroup[0];
+                                        if (mydiff >= 0) {
+                                            onPlayAudio = true;
+                                            var source = audioCtx.createBufferSource();
+                                            console.log('deplyed ' + mydiff + 'ms start at ' + audioCtx.currentTime);
+                                            source.onended = function () {
+                                                onPlayAudio = false;
+                                                console.log('end at ' + audioCtx.currentTime);
+                                            };
+                                            source.buffer = audioGroup[1];
+                                            source.connect(audioCtx.destination);
+                                            source.start(audioGroup[0]);
 
-                    frames.shift();
-                }
-            }
-
-            // if (audios.length > 0) {
-            //     var audioGroup = audios[0];
-            //     var mydiff = ts - diff - timeShift - new Date(audioGroup[0]);
-            //     if (mydiff >= 0) {
-            //         console.log(mydiff + 'ms last ' + audioGroup[0] + 'ms')
-            //         source.onended = function () { console.log('source ended'); };
-            //         //audioCtx.decodeAudioData(audioGroup[1].buffer, function (buffer) {
-            //         audioCtx.decodeAudioData(audioGroup[1].buffer, function (buffer) {
-            //             source.buffer = buffer;
-            //         }, function (e) { console.error(e); });
-            //         audios.shift();
-            //     }
-            // }
-
-            requestAnimationFrame(this.update.bind(this));
-        }
-
-        var onPlayAudio = false;
-        function updateAudio() {
-            var ts = +new Date();
-            if (audios.length > 0 && !onPlayAudio) {
-                var audioGroup = audios[0];
-                var mydiff = audioCtx.currentTime - audioGroup[0];
-                if (mydiff >= 0) {
-                    onPlayAudio = true;
-                    var source = audioCtx.createBufferSource();
-                    console.log('deplyed ' + mydiff + 'ms start at ' + audioCtx.currentTime);
-                    source.onended = function () {
-                        onPlayAudio = false;
-                        console.log('end at ' + audioCtx.currentTime);
-                    };
-                    source.buffer = audioGroup[1];
-                    source.connect(audioCtx.destination);
-                    source.start(audioGroup[0]);
-
-                    audios.shift();
-                }
-                else {
-                    console.log('hold')
-                }
-            }
-            setTimeout(updateAudio, 0);
+                                            audios.shift();
+                                        }
+                                        else {
+                                            console.log('hold')
+                                        }
+                                    }
+                                    setTimeout(updateAudio, 0);
 
 
-        }
+                                }
 
-        function _base64ToArrayBuffer(str) {
-            var decodedStr = window.atob(str);
-            var bytes = new Uint8Array(decodedStr.length);
-            for (var i = 0; i < bytes.length; ++i) {
-                bytes[i] = decodedStr.charCodeAt(i);
-            }
-            return bytes;
-        }
+                                function _base64ToArrayBuffer(str) {
+                                    var decodedStr = window.atob(str);
+                                    var bytes = new Uint8Array(decodedStr.length);
+                                    for (var i = 0; i < bytes.length; ++i) {
+                                        bytes[i] = decodedStr.charCodeAt(i);
+                                    }
+                                    return bytes;
+                                }
 
-        function _arrayBufferToBase64(buffer) {
-            var binary = '';
-            var bytes = new Uint8Array(buffer);
-            var len = bytes.byteLength;
-            for (var i = 0; i < len; i++) {
-                binary += String.fromCharCode(bytes[i]);
-            }
-            return window.btoa(binary);
-        }
+                                function _arrayBufferToBase64(buffer) {
+                                    var binary = '';
+                                    var bytes = new Uint8Array(buffer);
+                                    var len = bytes.byteLength;
+                                    for (var i = 0; i < len; i++) {
+                                        binary += String.fromCharCode(bytes[i]);
+                                    }
+                                    return window.btoa(binary);
+                                }
 
-        function write(msg) {
-            var div = document.getElementById('output');
-            if (div.innerHTML.length > 1000) div.innerHTML = '';
-            div.innerHTML = new Date() + msg + '<br/>' + div.innerHTML;
-        }
+                                function write(msg) {
+                                    var div = document.getElementById('output');
+                                    if (div.innerHTML.length > 1000) div.innerHTML = '';
+                                    div.innerHTML = new Date() + msg + '<br/>' + div.innerHTML;
+                                }
 
-        function encodeWAV(samples) {
-            let sampleLength = 0;
-            samples.reduce((acc, cur) => sampleLength += cur.length, 0);
-            let newSamples = new Float32Array(sampleLength);
-            let newOffset = 0;
-            for (let i = 0; i < samples.length; ++i) {
-                newSamples.set(samples[i], newOffset);
-                newOffset += samples[i].length;
-            }
-            samples = newSamples;
+                                function encodeWAV(samples) {
+                                    let sampleLength = 0;
+                                    samples.reduce((acc, cur) => sampleLength += cur.length, 0);
+                                    let newSamples = new Float32Array(sampleLength);
+                                    let newOffset = 0;
+                                    for (let i = 0; i < samples.length; ++i) {
+                                        newSamples.set(samples[i], newOffset);
+                                        newOffset += samples[i].length;
+                                    }
+                                    samples = newSamples;
 
-            var arr = new ArrayBuffer(44 + sampleLength * 2);
-            var view = new DataView(arr);
+                                    var arr = new ArrayBuffer(44 + sampleLength * 2);
+                                    var view = new DataView(arr);
 
-            /* RIFF identifier */
-            this.writeString(view, 0, 'RIFF');
-            /* RIFF chunk length */
-            view.setUint32(4, 36 + sampleLength * 2, true);
-            /* RIFF type */
-            this.writeString(view, 8, 'WAVE');
-            /* format chunk identifier */
-            this.writeString(view, 12, 'fmt ');
-            /* format chunk length */
-            view.setUint32(16, 16, true);
-            /* sample format (raw) */
-            view.setUint16(20, 1, true);
-            /* channel count */
-            view.setUint16(22, 1, true);
-            /* sample rate */
-            view.setUint32(24, 48000, true);
-            /* byte rate (sample rate * block align) */
-            view.setUint32(28, 48000 * 1 * 2, true);
-            /* block align (channel count * bytes per sample) */
-            view.setUint16(32, 1 * 2, true);
-            /* bits per sample */
-            view.setUint16(34, 16, true);
-            /* data chunk identifier */
-            this.writeString(view, 36, 'data');
-            /* data chunk length */
-            view.setUint32(40, sampleLength * 2 + 44, true);
+                                    /* RIFF identifier */
+                                    this.writeString(view, 0, 'RIFF');
+                                    /* RIFF chunk length */
+                                    view.setUint32(4, 36 + sampleLength * 2, true);
+                                    /* RIFF type */
+                                    this.writeString(view, 8, 'WAVE');
+                                    /* format chunk identifier */
+                                    this.writeString(view, 12, 'fmt ');
+                                    /* format chunk length */
+                                    view.setUint32(16, 16, true);
+                                    /* sample format (raw) */
+                                    view.setUint16(20, 1, true);
+                                    /* channel count */
+                                    view.setUint16(22, 1, true);
+                                    /* sample rate */
+                                    view.setUint32(24, 48000, true);
+                                    /* byte rate (sample rate * block align) */
+                                    view.setUint32(28, 48000 * 1 * 2, true);
+                                    /* block align (channel count * bytes per sample) */
+                                    view.setUint16(32, 1 * 2, true);
+                                    /* bits per sample */
+                                    view.setUint16(34, 16, true);
+                                    /* data chunk identifier */
+                                    this.writeString(view, 36, 'data');
+                                    /* data chunk length */
+                                    view.setUint32(40, sampleLength * 2 + 44, true);
 
-            this.floatTo16BitPCM(view, 44, samples);
-            return arr;
-        }
+                                    this.floatTo16BitPCM(view, 44, samples);
+                                    return arr;
+                                }
 
-        function floatTo16BitPCM(view, offset, input) {
-            for (var i = 0; i < input.length; i++ , offset += 2) {
-                var s = Math.max(-1, Math.min(1, input[i]));
-                view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-            }
-        }
+                                function floatTo16BitPCM(view, offset, input) {
+                                    for (var i = 0; i < input.length; i++ , offset += 2) {
+                                        var s = Math.max(-1, Math.min(1, input[i]));
+                                        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                                    }
+                                }
 
-        function writeString(view, offset, string) {
-            for (var i = 0; i < string.length; i++) {
-                view.setUint8(offset + i, string.charCodeAt(i));
-            }
-        }
+                                function writeString(view, offset, string) {
+                                    for (var i = 0; i < string.length; i++) {
+                                        view.setUint8(offset + i, string.charCodeAt(i));
+                                    }
+                                }
     </script>
 </body>
 

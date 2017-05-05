@@ -104,6 +104,7 @@ class H5RecorderV10 {
     stop() {
         this._isRunning = false;
     }
+    
     saveAudio() {
 
         var au = this.encodeWAV(this._totalAudioQ, 48000, 1, 1);
@@ -161,8 +162,10 @@ class H5RecorderV10 {
         if (this._frameQueue.length == 0) return;
 
         this._isUploading = true;
-        let audio = this._arrayBufferToBase64(this.encodeWAV(this._audioQueue, 48000, 1, 1));
-        //let audio = this._arrayBufferToBase64(this._audioQueue[0]);
+        let audioRawBuffer = this.encodeWAV(this._audioQueue, 8000, 1, 2);
+        //let audioMP3 = this.convert2mp3(audioRawBuffer);
+        let audio = this._arrayBufferToBase64(audioRawBuffer);
+
         this._socket.emit('liveservice', {
             liveId: this._liveId,
             frames: this._frameQueue,
@@ -193,19 +196,15 @@ class H5RecorderV10 {
     }
 
     // origin is 48k16b samples
-    private downSampleTo8k8b(samples: Float32Array, sampleRate, bytesPerChunk) {
+    private downSampling(samples: Float32Array, sampleRate) {
         let ratio = 48000 / sampleRate;
-        let newSamples = new Uint8Array(samples.length / ratio * bytesPerChunk)
+        let newSamples = new Float32Array(samples.length / ratio);
         let sum = 0;
-        for (let i = 0; i < samples.length; ++i) {
+        for (let i = 0; i < samples.length; i++) {
             sum += samples[i];
             if ((i + 1) % ratio == 0) {
-                let avg = samples[i]; // drop some
-                if (bytesPerChunk == 1)
-                    newSamples[Math.floor((i + 1) / ratio) - 1] = avg < 0 ? avg * 0x80 : avg * 0x7F;
-                else
-                    newSamples[Math.floor((i + 1) / ratio) - 1] = avg < 0 ? avg * 0x80 : avg * 0x7F;
-
+                let avg = sum / ratio; // drop some
+                newSamples[Math.floor((i + 1) / ratio) - 1] = avg;
                 sum = 0;
             }
         }
@@ -213,6 +212,20 @@ class H5RecorderV10 {
         return newSamples;
     }
 
+    private convert2mp3(audioRawBuffer: ArrayBuffer) {
+        let audioRaw = new Int16Array(audioRawBuffer);
+        var mp3encoder = new lamejs.Mp3Encoder(1, 8000, 128); //mono 44.1khz encode to 128kbps
+
+       
+        var mp3Chunks:Uint8Array = mp3encoder.encodeBuffer(audioRaw);
+        var mp3Chunks1 = mp3encoder.flush();
+        var mp3DataSize = mp3Chunks.length + mp3Chunks1.length;
+        var mp3Data = new Uint8Array(mp3DataSize);
+        mp3Data.set(mp3Chunks, 0);
+        mp3Data.set(mp3Chunks1, mp3Chunks.length);
+
+        return mp3Data;
+    }
 
     private encodeWAV(samplesCollection: Float32Array[], sampleRate, channels, bytesPerChunk) {
         // Merge samples
@@ -226,15 +239,19 @@ class H5RecorderV10 {
         }
 
         // Downsampling
-        let downSampled = this.downSampleTo8k8b(mergedSamples, sampleRate, bytesPerChunk);
-        let wavDataSize = downSampled.byteLength;
+        let downSampled = this.downSampling(mergedSamples, sampleRate);
 
         // Write wav
-        var sampleLength = wavDataSize;
-        var wavBuffer = new ArrayBuffer(44 + wavDataSize * bytesPerChunk);
+        var wavDataSize = downSampled.length * bytesPerChunk;
+        var wavBuffer = new ArrayBuffer(44 + wavDataSize);
         var view = new DataView(wavBuffer);
-        for (let i = 0; i < downSampled.byteLength; ++i) {
-            view.setUint8(i + 44, downSampled[i]);
+        /* write samples */
+        for (let i = 44; i < downSampled.length + 44; i++) {
+            var data = downSampled[i];
+            if (bytesPerChunk == 1)
+                view.setInt8(44 + (i - 44) * bytesPerChunk, data < 0 ? data * 0x80 : data * 0x7F);
+            else
+                view.setInt16(44 + (i - 44) * bytesPerChunk, data < 0 ? data * 0x8000 : data * 0x7FFF, true);
         }
 
         /* RIFF identifier */
@@ -262,7 +279,7 @@ class H5RecorderV10 {
         /* data chunk identifier */
         this.writeString(view, 36, 'data');
         /* data chunk length */
-        view.setUint32(40, wavDataSize * bytesPerChunk, true);
+        view.setUint32(40, wavDataSize, true);
 
         return wavBuffer;
     }

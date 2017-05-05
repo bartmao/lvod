@@ -45,6 +45,7 @@
                                         if(playTime <= lastAudioEndTime)
                                             console.log('adjusted '+ (lastAudioEndTime - playTime) + 's');
                                         playTime += playTime > lastAudioEndTime ? 0 : lastAudioEndTime - playTime;
+                                        
                                         var audioBuf = _base64ToArrayBuffer(group.audio);
                                         audioCtx.decodeAudioData(audioBuf.buffer, function (buffer) {
                                             lastAudioEndTime = playTime + buffer.duration;
